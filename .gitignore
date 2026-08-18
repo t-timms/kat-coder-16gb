@@ -1,0 +1,11 @@
+# Checkpoints and artifacts are large and reproducible from the scripts.
+*.safetensors
+*.pt
+*.log
+models/
+reap-stability/
+reap-eval/
+bench-ab/
+__pycache__/
+*.pyc
+.venv/

@@ -1,0 +1,30 @@
+# Held-out code perplexity, the high-resolution arm of the seed-42 vs seed-0 test.
+#
+# Why this corpus: it must be independent of theblackcat102/evol-codealpaca-v1.
+# If a calibration document leaked into the eval set, whichever seed drew it would
+# score an artificially lower perplexity on it, biasing the exact comparison being
+# run. Magicoder OSS-Instruct is a different lineage (generated from Stack seed
+# snippets) than Evol-CodeAlpaca (Evol-Instruct over CodeAlpaca), so independence
+# is structural rather than argued from a probability.
+#
+# Why perplexity rather than accuracy: binary accuracy on ~10k items resolves only
+# ~0.9 pp at 80% power (arXiv 2605.30315). Per-document log-likelihood is continuous
+# and paired per document, which resolves far smaller differences at the same N.
+# Perplexity alone is not a sufficient verdict on a pruned model, so this is the
+# screen that says whether anything differs at all, not the whole claim.
+#
+# Modelled on lm_eval/tasks/wikitext/wikitext.yaml. Default process_results applies
+# (whitespace word boundaries), which is fine because both arms are scored identically.
+
+task: magicoder_code_ppl
+dataset_path: ise-uiuc/Magicoder-OSS-Instruct-75K
+output_type: loglikelihood_rolling
+test_split: train
+doc_to_text: ""
+doc_to_target: "{{problem}}\n\n{{solution}}"
+metric_list:
+  - metric: word_perplexity
+  - metric: byte_perplexity
+  - metric: bits_per_byte
+metadata:
+  version: 1.0
