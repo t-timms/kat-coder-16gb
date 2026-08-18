@@ -27,6 +27,75 @@ linked-list reversal, a palindrome checker with type hints, and a correct
 **NVFP4 compute is numerically correct on SM120 for `qwen3_5_moe`.** No pad
 collapse, no NaN. That was the project's central risk and it did not materialise.
 
+## Quickstart
+
+Environment setup, including why three separate Python environments are required,
+is in [docs/environment.md](docs/environment.md). Expect to need an RTX 5070 Ti or
+another SM120 card, about 250 GB of disk, and 80 GB allocated to WSL2.
+
+**1. Check preconditions before spending hours on a run**
+
+```bash
+bash scripts/probes/check_quant_preconditions.sh
+```
+
+Reports which environment has llm-compressor, whether the calibration artifacts
+exist, disk headroom, and free VRAM, in a single pass. Discovering these one
+failure at a time costs a load cycle each.
+
+**2. Prune to 50 percent**
+
+```bash
+bash scripts/prune/prune_and_eval_50.sh
+bash scripts/prune/fix_ckpt_files.sh     # restore files reap's save path drops
+```
+
+Roughly 3 minutes given cached calibration observations, or about an hour if
+calibration has to run. 50 percent is not a tuning choice: unpruned NVFP4 is
+21.9 GB and 25 percent lands at 16-17 GB, neither of which fits once KV cache is
+counted.
+
+**3. Quantize**
+
+```bash
+~/quant-env/bin/python scripts/quantize/quantize_kat.py        # NVFP4A16, 82 s
+~/quant-env/bin/python scripts/quantize/quantize_kat_w4a4.py   # W4A4, 28.7 min
+```
+
+Weight-only is data free and therefore fast. W4A4 quantizes activations and needs
+real calibration. Both output about 13.3 GiB.
+
+**4. Confirm it serves and produces real code**
+
+```bash
+~/vllm-env/bin/python scripts/bench/smoke_pruned_nvfp4.py
+```
+
+Judges the output by content, not exit code, because this stack returns 0 on
+failure often enough that exit codes are not evidence.
+
+**5. Benchmark**
+
+```bash
+bash scripts/bench/bench_ab.sh 5
+~/vllm-env/bin/python scripts/bench/bench_ab_analyze.py
+```
+
+Reports median and range over separate process invocations, and prints which
+kernel each arm actually selected. That last part matters: a silent fallback to an
+unsupported kernel appears only as lost throughput, with no error.
+
+**6. Compare two checkpoints properly**
+
+```bash
+bash scripts/eval/paired_eval.sh 1000
+~/reap-env/bin/python scripts/eval/paired_analyze.py
+```
+
+Pairs by document hash and verifies both models scored identical text rather than
+assuming it, then reports a resolution diagnostic alongside the p-value so an
+underpowered null is not mistaken for evidence of no difference.
+
 ## Why 50 percent
 
 Forced by arithmetic, not chosen:
