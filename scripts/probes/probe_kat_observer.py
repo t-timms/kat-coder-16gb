@@ -8,6 +8,7 @@ the attribute paths until calibration is already running.
 
 from __future__ import annotations
 
+import os
 import functools
 
 import transformers
@@ -16,7 +17,7 @@ from transformers import AutoConfig
 
 from reap.observer import OBSERVER_CONFIG_REGISTRY, MoETransformerObserver
 
-MODEL = "/home/ttimm/models/KAT-Coder-V2.5-Dev"
+MODEL = os.path.expanduser("~/models/KAT-Coder-V2.5-Dev")
 EXPECTED_LAYERS = 40
 EXPECTED_EXPERTS = 256
 EXPECTED_TOP_K = 8

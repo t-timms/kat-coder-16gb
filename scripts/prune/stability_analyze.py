@@ -12,13 +12,14 @@ markedly in their sensitivity to expert pruning.
 
 from __future__ import annotations
 
+import os
 import glob
 import statistics
 import sys
 
 import torch
 
-ROOT = "/home/ttimm/reap-stability"
+ROOT = os.path.expanduser("~/reap-stability")
 SEQLEN = 2048
 SIZES = [4, 16, 64]
 SEEDS = [42, 0]

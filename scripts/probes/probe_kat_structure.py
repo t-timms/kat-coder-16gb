@@ -8,6 +8,7 @@ the observer hook nothing and silently produce empty statistics rather than erro
 
 from __future__ import annotations
 
+import os
 import transformers
 from accelerate import init_empty_weights
 from transformers import AutoConfig
@@ -15,7 +16,7 @@ from transformers import AutoConfig
 from reap.model_util import MODEL_ATTRS, get_config, get_layers, get_moe
 from reap.observer import OBSERVER_CONFIG_REGISTRY
 
-MODEL = "/home/ttimm/models/KAT-Coder-V2.5-Dev"
+MODEL = os.path.expanduser("~/models/KAT-Coder-V2.5-Dev")
 
 
 def rule(title: str) -> None:

@@ -13,13 +13,14 @@ rather than reported as a null.
 
 from __future__ import annotations
 
+import os
 import glob
 import json
 import math
 import sys
 from pathlib import Path
 
-ROOT = Path("/home/ttimm/reap-eval")
+ROOT = Path(os.path.expanduser("~/reap-eval"))
 METRIC_KEYS = ("acc_norm", "acc")
 
 

@@ -13,12 +13,13 @@ Builds the model on meta device, so this costs seconds rather than loading 69 GB
 
 from __future__ import annotations
 
+import os
 from accelerate import init_empty_weights
 from transformers import AutoConfig, AutoModelForCausalLM
 
 from llmcompressor.modifiers.pruning.reap.utils import EXPERTS_ATTRS, ROUTER_ATTRS
 
-MODEL = "/home/ttimm/models/KAT-Coder-V2.5-Dev"
+MODEL = os.path.expanduser("~/models/KAT-Coder-V2.5-Dev")
 
 print(f"EXPERTS_ATTRS: {EXPERTS_ATTRS}")
 print(f"ROUTER_ATTRS : {ROUTER_ATTRS}")
