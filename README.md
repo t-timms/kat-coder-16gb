@@ -117,8 +117,22 @@ These are not preferences. Each one cost real time to find.
 
 **Serving**
 
-- `enforce_eager=True` is mandatory. CUDA graph capture is numerically broken on
-  SM120 for every MoE and attention backend.
+- **CUDA graphs work.** They were long believed numerically broken on SM120, and
+  that belief is wrong for this model on vLLM 0.20.2: capture succeeds and the
+  generated text is byte-identical to eager mode. Enabling them is the single
+  largest speed lever found so far. Three settings are required together:
+  - `max_num_seqs=4`. The default is 256, and this model is 3:1 hybrid linear
+    attention where every decode sequence needs its own Mamba cache block. Only
+    about five fit, and capture refuses to proceed. This was the real blocker, and
+    it presents as a memory error rather than anything resembling corruption.
+  - `cudagraph_capture_sizes=[1, 2, 4, 8]`. vLLM otherwise captures 51 sizes up to
+    512, each costing memory this card does not have spare.
+  - Do **not** set `VLLM_MEMORY_PROFILER_ESTIMATE_CUDAGRAPHS=0`. It is correct
+    advice for eager mode, but with graphs enabled it stops vLLM accounting for
+    graph memory during KV cache allocation.
+- `enforce_eager=True` remains a useful fallback for isolating a suspected kernel
+  problem, and every measurement in this repo predating the graph finding was taken
+  under it.
 - `language_model_only=True` is mandatory. Without it vLLM profiles a
   16,384-token image budget through a vision tower that has zero trained weights,
   and warmup runs for over 16 minutes without finishing.
