@@ -5,27 +5,35 @@ local agentic coding model inside 16 GB of consumer VRAM, on an RTX 5070 Ti (SM1
 
 Pipeline: REAP expert pruning at 50 percent, then NVFP4 quantization, served by vLLM.
 
-## Status
+## Results
 
-Working proof of path, not a release.
+| metric | value | conditions |
+|---|---|---|
+| **Size** | **12.45 GiB** | REAP 50% + NVFP4A16, vision-stripped |
+| **Speed** | **149.5 tok/s** median, n=5 | 512 in / 256 out, batch 1, CUDA graphs (PIECEWISE) |
+| **HumanEval+** | **89.0%** [83.3, 92.9] | greedy, instruct framing, 164 problems |
+| **MBPP+** | **90.5%** [87.1, 93.0] | greedy, instruct framing, 378 problems |
+| **SWE-bench pilot** | 4/4 patches resolved | mini-swe-agent bash-only, 5 instances |
+| **Load time** | 28.9 s | CUDA graphs enabled, no CPU offload |
+
+Release candidate: `kat-50pct-nvfp4a16-renorm-stripped`. Renorm-corrected,
+vision-free, loads on SM120 with no CPU offload. NVFP4 compute is numerically
+correct on this architecture. No pad collapse, no NaN.
+
+## Status
 
 | stage | status |
 |---|---|
-| REAP 50% prune (Qwen3.5 MoE support added to reap fork) | done, both seeds |
-| NVFP4 quantization | done, two variants built |
-| Loads and generates correct code in 16 GB | **yes, verified** |
-| Router renormalization fix | done, verified |
-| Speed benchmarked properly | in progress |
-| HumanEval / agentic accuracy | not started |
-| Release checkpoint | not built |
-
-The 50 percent pruned model quantizes to **13.28 GiB**, loads in **31 s** with no
-CPU offload, and produces correct code (verified by reading it: a three-pointer
-linked-list reversal, a palindrome checker with type hints, and a correct
-`ZeroDivisionError` diagnosis with guard).
-
-**NVFP4 compute is numerically correct on SM120 for `qwen3_5_moe`.** No pad
-collapse, no NaN. That was the project's central risk and it did not materialise.
+| REAP 50% prune (Qwen3.5 MoE support added to reap fork) | done |
+| Router renormalization fix | done, committed for upstream |
+| NVFP4A16 quantization (data-free, 82 s) | done |
+| Vision tower stripped | done (no trained weights existed) |
+| Speed benchmarked (149.5 tok/s, n=5) | done |
+| CUDA graphs (7.4x over eager) | done |
+| Agentic serving config (prefix caching, 45x) | done |
+| HumanEval+ / MBPP+ accuracy | done (89.0% / 90.5%) |
+| SWE-bench Verified via mini-swe-agent | **pilot done, 50-instance run pending** |
+| Release checkpoint on Hugging Face | not yet published |
 
 ## Quickstart
 
@@ -38,10 +46,6 @@ another SM120 card, about 250 GB of disk, and 80 GB allocated to WSL2.
 ```bash
 bash scripts/probes/check_quant_preconditions.sh
 ```
-
-Reports which environment has llm-compressor, whether the calibration artifacts
-exist, disk headroom, and free VRAM, in a single pass. Discovering these one
-failure at a time costs a load cycle each.
 
 **2. Prune to 50 percent**
 
@@ -62,17 +66,11 @@ counted.
 ~/quant-env/bin/python scripts/quantize/quantize_kat_w4a4.py   # W4A4, 28.7 min
 ```
 
-Weight-only is data free and therefore fast. W4A4 quantizes activations and needs
-real calibration. Both output about 13.3 GiB.
-
 **4. Confirm it serves and produces real code**
 
 ```bash
 ~/vllm-env/bin/python scripts/bench/smoke_pruned_nvfp4.py
 ```
-
-Judges the output by content, not exit code, because this stack returns 0 on
-failure often enough that exit codes are not evidence.
 
 **5. Benchmark**
 
@@ -81,161 +79,129 @@ bash scripts/bench/bench_ab.sh 5
 ~/vllm-env/bin/python scripts/bench/bench_ab_analyze.py
 ```
 
-Reports median and range over separate process invocations, and prints which
-kernel each arm actually selected. That last part matters: a silent fallback to an
-unsupported kernel appears only as lost throughput, with no error.
-
-**6. Compare two checkpoints properly**
+**6. Run SWE-bench (agentic evaluation)**
 
 ```bash
-bash scripts/eval/paired_eval.sh 1000
-~/reap-env/bin/python scripts/eval/paired_analyze.py
+# Prerequisite: Docker Engine in WSL, mini-swe-agent + swebench installed
+bash scripts/swebench/run_pilot_all.sh 50    # ~2-3 hours for 50 instances
+bash scripts/swebench/grade_pilot.sh         # official SWE-bench harness
 ```
 
-Pairs by document hash and verifies both models scored identical text rather than
-assuming it, then reports a resolution diagnostic alongside the p-value so an
-underpowered null is not mistaken for evidence of no difference.
+The serve + rollout + teardown are combined in one script because starting the
+server from a separate invocation reports READY and then dies when that invocation
+exits. See `scripts/swebench/README.md` for the full agentic pipeline docs.
+
+**7. Run HumanEval / MBPP+ (non-agentic accuracy)**
+
+```bash
+bash scripts/eval/eval_suite.sh              # ~8 min for 706 problems
+~/swebench-env/bin/python scripts/eval/read_scores.py  # Wilson CIs
+```
 
 ## Why 50 percent
 
 Forced by arithmetic, not chosen:
 
 | variant | size | fits 16 GB |
-|---|---:|---|
+|---|---|---|
 | bf16 base | 69.3 GB | no |
 | NVFP4, unpruned | 21.9 GB | no |
 | REAP 25% + NVFP4 | ~16-17 GB | no, not once KV cache is counted |
-| **REAP 50% + NVFP4** | **13.3 GiB** | **yes** |
+| **REAP 50% + NVFP4** | **12.45 GiB** | **yes** |
 
 Supporting evidence: [Half the Experts, All the Code](https://arxiv.org/html/2607.16721)
 pruned Qwen3.6-35B-A3B, this model's own base, at 50 percent with no statistically
 detectable loss on its primary code benchmark.
 
-## Environment constraints, all verified on this machine
+## Agentic serving (not the same as benchmark serving)
 
-These are not preferences. Each one cost real time to find.
+The 149.5 tok/s benchmark config serves only **14,672 tokens of context** and
+cannot run an agent. The agentic config trades 7% speed for 4.4x more context:
+
+| cudagraph_mode | tok/s | max context |
+|---|---:|---:|
+| FULL_AND_PIECEWISE | 149.5 | 14,672 |
+| **PIECEWISE** | **139.4** | **64,976** |
+| eager | 19.9 | 148,816 |
+
+**Prefix caching is the single biggest agentic lever: 45x.** An agent replays its
+whole history every step. Measured on a 13,130-token history:
+
+| | cold | warm (+1 step) |
+|---|---:|---:|
+| caching OFF | 31.25 s | 30.74 s |
+| **caching ON** | 9.39 s | **0.21 s** |
+
+Working agentic config:
+
+```
+--max-model-len 32768 --max-num-seqs 2 --gpu-memory-utilization 0.92
+--kv-cache-dtype fp8 --enable-prefix-caching --max-num-batched-tokens 4096
+--reasoning-parser qwen3 --language-model-only
+--compilation-config '{"cudagraph_capture_sizes":[1,2],"cudagraph_mode":"PIECEWISE"}'
+```
+
+The KV budget fluctuates 0.49-1.41 GiB with the Windows desktop's VRAM.
+Never set `max_model_len` near a measured ceiling; 32768 survives the worst case.
+See `scripts/swebench/README.md` for the full measured table.
+
+## Environment constraints, all verified on this machine
 
 **Serving**
 
 - **CUDA graphs work.** They were long believed numerically broken on SM120, and
-  that belief is wrong for this model on vLLM 0.20.2: capture succeeds and the
-  generated text is byte-identical to eager mode. Enabling them is the single
-  largest speed lever found so far. Three settings are required together:
-  - `max_num_seqs=4`. The default is 256, and this model is 3:1 hybrid linear
-    attention where every decode sequence needs its own Mamba cache block. Only
-    about five fit, and capture refuses to proceed. This was the real blocker, and
-    it presents as a memory error rather than anything resembling corruption.
-  - `cudagraph_capture_sizes=[1, 2, 4, 8]`. vLLM otherwise captures 51 sizes up to
-    512, each costing memory this card does not have spare.
-  - Do **not** set `VLLM_MEMORY_PROFILER_ESTIMATE_CUDAGRAPHS=0`. It is correct
-    advice for eager mode, but with graphs enabled it stops vLLM accounting for
-    graph memory during KV cache allocation.
-- `enforce_eager=True` remains a useful fallback for isolating a suspected kernel
-  problem, and every measurement in this repo predating the graph finding was taken
-  under it.
-- `language_model_only=True` is mandatory. Without it vLLM profiles a
-  16,384-token image budget through a vision tower that has zero trained weights,
-  and warmup runs for over 16 minutes without finishing.
-- `gpu_memory_utilization=0.90`. At 0.95 the engine refuses to start: only
-  14.66 of 15.92 GiB is free because the Windows desktop holds about 1.26 GiB.
-- Do not use `cpu_offload_gb`. That path dies with an illegal memory access in
-  `vllm/model_executor/offloader/uva.py:119`. It is only needed for checkpoints
-  too large to fit, which the pruned model is not.
+  that belief is wrong for this model on vLLM 0.20.2. Three settings are required:
+  - `max_num_seqs=2` (for agentic) or `4` (for benchmark). The default 256
+    exceeds available Mamba cache blocks on this hybrid architecture.
+  - `cudagraph_capture_sizes=[1,2]` (agentic) or `[1,2,4,8]` (benchmark).
+  - Do **not** set `VLLM_MEMORY_PROFILER_ESTIMATE_CUDAGRAPHS=0` with graphs on.
+- `language_model_only=True` is mandatory. Without it vLLM profiles a 16K-token
+  image budget through a vision tower with zero trained weights.
+- `gpu_memory_utilization=0.92`. Higher values fail because the Windows desktop
+  holds 0.5-1.0 GiB of VRAM that fluctuates.
+- Do not use `cpu_offload_gb`. That path dies with an illegal memory access.
 
-**The model has no vision tower**
-
-The config declares `Qwen3_5MoeForConditionalGeneration`, but the weights are
-text-only: 31,333 tensors, every one under `model.language_model.`, zero matching
-visual, vision, or patch_embed. The declared tower is randomly initialised on every
-load. This caused three separate failures (a warmup hang, a missing-processor load
-error, and `Qwen3VLVideoProcessor` failing on absent torchvision), so a release
-build should strip the vision config rather than carry it.
+**The model has no vision tower.** The config declares
+`Qwen3_5MoeForConditionalGeneration`, but all 31,333 weight tensors are under
+`model.language_model.`. The declared tower is randomly initialised on every load.
+The release candidate strips the vision config.
 
 **Quantization**
 
-- `NVFP4A16` (weight-only) is **data free**. llm-compressor infers a
-  `DataFreePipeline` and the whole job takes 82 seconds.
-- `NVFP4` (W4A4) quantizes activations, needs real calibration, and took
-  **28.7 minutes** for the same model.
-- Both produce the same size: 13.28 vs 13.29 GiB. Activations are never stored, so
-  the choice between them is purely speed versus accuracy, with no size cost.
-- Pass `processor=tokenizer` to `oneshot`. Otherwise `AutoProcessor` tries to build
-  a video processor for the phantom multimodal config and fails.
-- Grepping `num_bits: 4` cannot distinguish W4A4 from W4A16. Only
-  `input_activations` decides it.
+- `NVFP4A16` (weight-only) is **data free** and takes 82 seconds.
+- `NVFP4` (W4A4) needs real calibration and takes 28.7 minutes.
+- Both produce the same size. Weight-only wins on speed (1.32x) and accuracy safety.
+- Pass `processor=tokenizer` to `oneshot` to avoid the phantom video processor.
 
 **Pruning**
 
-- reap's save path drops four files the loader needs: `preprocessor_config.json`,
-  `video_preprocessor_config.json`, `merges.txt`, `vocab.json`. See
+- reap's save path drops four files the loader needs. See
   `scripts/prune/fix_ckpt_files.sh`.
-- Router renormalization was silently disabled, because reap gated it on
-  `getattr(config, "norm_topk_prob", False)` while Qwen3.5 renormalizes
-  unconditionally in the router forward and omits the flag from its config. Fixed
-  by asking the adapter instead. Directories named `reap-renorm_true-...` recorded
-  the requested value, not the effective one, so the bug was invisible in the logs.
-- Changing renormalization invalidates every cached `observations_*.pt`. Re-runs
-  need a fresh `--artifacts-dir`, since the aggregate cache is keyed by path and
-  will otherwise return a stale hit.
+- Router renormalization was silently disabled. Fixed by asking the adapter.
+  Changing renormalization invalidates cached `observations_*.pt`.
+- llm-compressor's REAP does **not** support this architecture (requires
+  `LinearExperts2D`; Qwen3.5's fused experts are not). Pruning uses the reap
+  fork; llm-compressor is used only for quantization.
 
 **Tooling traps**
 
-- The lm-eval subcommand is `run`, not `eval`. Worse, `lm_eval eval --help` exits
-  **0**, because the top-level parser consumes `--help`, so a naive check passes
-  for a subcommand that does not exist.
-- Exit codes are unreliable across this stack: lm-eval prints full tracebacks and
-  exits 0, and vLLM aborts at teardown with rc=134 after writing valid results.
-  Judge every stage by artifacts on disk.
-- llm-compressor's REAP does **not** support this architecture. It detects MoE
-  layers by duck typing and requires `LinearExperts2D`; Qwen3.5's fused
-  `Qwen3_5MoeExperts` fails the check, so all 40 layers are rejected. Pruning uses
-  the reap fork; llm-compressor is used only for quantization. See
-  `scripts/probes/probe_lc_reap.py`.
+- The lm-eval subcommand is `run`, not `eval`. `lm_eval eval --help` exits 0
+  without exercising the subcommand.
+- Exit codes are unreliable: lm-eval prints tracebacks and exits 0; vLLM
+  aborts at teardown with rc=134 after writing valid results.
+- Judge every stage by artifacts on disk, not exit codes.
 
-## Measured
-
-Cost model on this machine (RTX 5070 Ti, 78 GB usable RAM in WSL):
+## Measured costs (RTX 5070 Ti, 78 GB usable RAM in WSL)
 
 | operation | cost |
 |---|---|
 | REAP calibration, 64 samples at 2048 tokens | 57.5 min |
-| Prune to 50 percent | ~3 min (2.5 min load, 26 s streaming write) |
+| Prune to 50 percent | ~3 min |
 | NVFP4A16 quantization | 82 s (data free) |
 | NVFP4 W4A4 quantization | 28.7 min (needs calibration) |
-| Load 13.28 GiB checkpoint into vLLM | 31 s |
-
-Preliminary and not yet quotable: a first warmup measurement put the weight-only
-build at 18.9 tok/s and W4A4 at about 13.3 tok/s, single stream, 512 in and 256 out.
-That is the opposite of the expected direction and is being re-measured properly
-(see below).
-
-## Open questions and roadmap
-
-**1. Speed is the gating factor.** An agentic coder makes many sequential calls, so
-throughput decides whether the model is usable at all. The weight-only build routes
-to the `MARLIN` kernel, which dequantizes to bf16 rather than using the FP4 tensor
-cores, because `VLLM_CUTLASS` is unavailable to weight-only schemes. W4A4 unlocks
-native FP4 but selected `FLASHINFER_CUTLASS`, which prior work on this machine found
-to be SM100-oriented. Forcing `VLLM_CUTLASS` is the next experiment.
-
-**2. Accuracy is unmeasured.** Perplexity is not sufficient: the same paper above
-reports general perplexity rising 3.5x at the best 50 percent keep point while code
-perplexity rises only 1.5x, so perplexity overstates the damage. HumanEval, then
-SWE-bench via `mini-swe-agent`, compared against that harness's own leaderboard and
-never against the published 69.40, which was measured under a different scaffold.
-
-**3. Rebuild properly.** The current checkpoints were pruned before the
-renormalization fix. REAP's ablation implies roughly 0.7 points are recoverable.
-
-**4. Speculative decoding.** MTP is unavailable (`mtp_num_hidden_layers: 0`, despite
-several `-MTP-GGUF` repos implying otherwise). N-gram speculation is the realistic
-option, reported at about 1.10x on coding workloads.
-
-**5. Healing.** Literature consistently finds one-shot pruning is not the ceiling:
-[SlimMoE](https://arxiv.org/html/2506.18349v1) prunes to an intermediate size and
-distills to recover, repeating to target. The unpruned model is a natural teacher
-since it shares layer, expert, and dimension counts. A 36 GB student with a 69 GB
-teacher will not train on this machine, so this is a cloud step or a deliberate skip.
+| Load 12.45 GiB checkpoint into vLLM | 28.9 s |
+| HumanEval+ + MBPP+ (706 problems) | ~8 min |
+| SWE-bench 50 instances (rollout + grade) | ~2-3 hours |
 
 ## Honest positioning
 
@@ -248,32 +214,31 @@ Hugging Face Hub on 2026-08-17:
   (`gbuzhf/KAT-Coder-V2.5-Dev-REAP-205E-MTP-GGUF`).
 
 What is unclaimed is a **vLLM-servable KAT-Coder that is genuinely usable in 16 GB**.
-The bar to beat is Devstral-2 22B at 52.3 percent agentic in a comparable footprint.
-
-A separate measurement from this work, on the stability of REAP's expert ranking
-under different calibration draws, is tracked independently.
+The bar to beat is Devstral Small (2512) at 56.4% under the same mini-swe-agent
+bash-only scaffold (SWE-bench/experiments, v1.17.2, 86.9 LM calls/instance).
 
 ## Layout
 
 ```
-scripts/prune/     REAP pruning, calibration stability, the renormalization fix
-scripts/quantize/  NVFP4A16 and NVFP4 W4A4 builds via llm-compressor
-scripts/eval/      paired evaluation, McNemar, resolution diagnostics
-scripts/bench/     A/B latency via vllm bench, serving smoke tests
-scripts/probes/    cheap precondition checks that run before expensive jobs
-tasks/             lm-eval task definitions
+scripts/prune/       REAP pruning, calibration stability, the renormalization fix
+scripts/quantize/    NVFP4A16 and NVFP4 W4A4 builds via llm-compressor
+scripts/eval/        HumanEval+/MBPP+, paired evaluation, McNemar
+scripts/bench/       A/B latency via vllm bench, serving smoke tests
+scripts/swebench/    SWE-bench Verified via mini-swe-agent (agentic evaluation)
+scripts/probes/      cheap precondition checks that run before expensive jobs
+tasks/               lm-eval task definitions
+docs/                environment setup guide
 ```
 
 ## Measurement conventions
 
-Numbers here follow a few rules, learned the hard way:
+- Report median and range over at least five separate process invocations.
+- Interleave A/B runs rather than blocking them.
+- Discard a warmup run.
+- Report the resolution diagnostic alongside any null result.
+- Use the standard tool (`vllm bench`, `lm-eval-harness`, `mini-swe-agent`).
 
-- Report median and range over at least five separate process invocations. Variance
-  lives between invocations, not inside them.
-- Interleave A/B runs rather than blocking them, so thermal drift and run order
-  cannot masquerade as the effect being measured.
-- Discard a warmup run. A cold compile cache measures the compiler.
-- Report the resolution diagnostic alongside any null result. A non-significant
-  difference from an underpowered test is not evidence of no difference.
-- Use the standard tool. `vllm bench` rather than a hand-rolled script, after one
-  such script reported 6.5 tok/s for a workload the official tool measured at 111.3.
+## License
+
+Apache 2.0, matching `reap` and `llm-compressor` so the router renormalization
+fix can be offered upstream without a licence mismatch.

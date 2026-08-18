@@ -9,3 +9,11 @@ bench-ab/
 __pycache__/
 *.pyc
 .venv/
+
+# SWE-bench artifacts (large, reproducible)
+swebench_pilot/
+swebench_eval/
+*.jsonl
+!scripts/swebench/registry.json
+kat_serve.log
+kat_serve.pid

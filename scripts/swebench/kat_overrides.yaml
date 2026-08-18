@@ -1,0 +1,42 @@
+# Overrides layered on top of mini-swe-agent's stock swebench.yaml.
+#
+# The stock prompts are left untouched on purpose: they are what the bash-only
+# leaderboard holds fixed across models, and changing them would make our number
+# incomparable to entries like devstral-small-2512 (56.4%, 86.9 LM calls/instance).
+# Only model wiring and limits are set here.
+#
+# NATIVE TOOL CALLING, not the backticks config. mini-swe-agent's default model
+# class (models/litellm_model.py:69) sends tools=[BASH_TOOL] with tool_choice auto
+# regardless of which prompt config is loaded, so the backticks prompts do not
+# avoid tool calling - they just mismatch it. Verified working end to end: vLLM
+# with --tool-call-parser qwen3_xml parses this model's
+# <tool_call><function=..><parameter=..> dialect into bash({"command": "ls -la"}).
+
+agent:
+  # Stock is 250. We serve 32768 tokens of context (deliberately safe - the
+  # momentary ceiling is ~65K but available KV swings 0.49-1.41 GiB with the
+  # Windows desktop's VRAM, and 60000 failed twice).
+  #
+  # 🔴 Context, not this number, is the real limit. The bash-only leaderboard shows
+  # devstral-small using 86.9 LM calls per instance; 87 steps of history will not
+  # fit in 32K. So expect context-related exits and DISCLOSE the run as
+  # step-limited. THE PILOT MEASURES actual per-step growth - retune from that.
+  step_limit: 40
+
+model:
+  model_name: "hosted_vllm/kat-16gb"
+  # Local model, zero cost. Without this, litellm raises on an unknown model id.
+  cost_tracking: "ignore_errors"
+  model_kwargs:
+    api_base: "http://localhost:8000/v1"
+    api_key: "EMPTY"
+    # From the model card's own SWE-bench recommendation (temperature=1.0,
+    # top_p=0.95). Deviating from a model's documented sampling is a known way to
+    # underrate it, so its numbers are used rather than a habitual temperature 0.
+    temperature: 1.0
+    top_p: 0.95
+    # Must be generous: the chat template opens <think> every turn, so a tight
+    # budget truncates mid-reasoning and the step is scored as a format failure
+    # rather than as incapability.
+    max_tokens: 3072
+    drop_params: true
