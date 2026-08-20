@@ -22,6 +22,10 @@ PORT=8000
 MODEL=~/models/kat-50pct-nvfp4a16-renorm-stripped
 ENVBIN=~/swebench-env/bin
 CFGDIR=~/kat_swebench
+# Default is the tested config. Set KAT_CONFIG=kat_overrides_context_managed.yaml
+# to try the unvalidated context-budget experiment instead (see that file for
+# what it changes and the known risk it hasn't been tested against).
+KAT_CONFIG="${KAT_CONFIG:-kat_overrides.yaml}"
 STOCK=~/swebench-env/lib/python3.12/site-packages/minisweagent/config/benchmarks/swebench.yaml
 LOG=~/kat_serve.log
 
@@ -37,7 +41,7 @@ trap cleanup EXIT INT TERM
 echo "=== starting vLLM (full log -> $LOG) ==="
 ~/vllm-env/bin/vllm serve "$MODEL" \
   --served-model-name kat-16gb --port "$PORT" \
-  --max-model-len 32768 --max-num-seqs 2 \
+  --max-model-len 32768 --max-num-seqs 8 \
   --gpu-memory-utilization 0.92 --kv-cache-dtype fp8 \
   --reasoning-parser qwen3 \
   --enable-auto-tool-choice --tool-call-parser qwen3_xml \
@@ -68,13 +72,13 @@ echo "   ok"
 df -h /var/lib/docker | tail -1 | sed 's/^/   /'
 
 echo
-echo "=== ROLLOUT: $N instances -> $OUT ==="
+echo "=== ROLLOUT: $N instances -> $OUT (config: $KAT_CONFIG) ==="
 mkdir -p "$OUT"
 cd "$CFGDIR" || exit 1
 LITELLM_MODEL_REGISTRY_PATH="$CFGDIR/registry.json" \
 "$ENVBIN/mini-extra" swebench \
   --subset verified --split test --shuffle --slice "0:$N" --workers 2 \
-  -o "$OUT" -c "$STOCK" -c "$CFGDIR/kat_overrides.yaml" 2>&1 | tail -25
+  -o "$OUT" -c "$STOCK" -c "$CFGDIR/$KAT_CONFIG" 2>&1 | tail -25
 
 echo
 echo "=== prefix cache hit counters during the rollout ==="

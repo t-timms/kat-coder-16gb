@@ -14,6 +14,21 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
   18 ContextWindowExceeded (32K ceiling), 9 LimitsExceeded, 1 garbage patch
   out of 23 generated. Results in
   `results/hosted_vllm__kat-16gb.kat-coder-16gb-50.json`.
+- **`kat_overrides_context_managed.yaml`, an opt-in, unvalidated alternative
+  agent config** (`step_limit=30`, `max_tokens=1024`, 5K observation
+  truncation, down from 40/3072/10K) aimed at the 18 ContextWindowExceeded
+  failures above. Select it with `KAT_CONFIG=kat_overrides_context_managed.yaml`
+  when invoking `run_pilot_all.sh`; default behavior is unchanged. Tightening
+  `max_tokens` this far risks truncating the model's mandatory `<think>` trace
+  mid-turn, which would show up as format failures instead of CWEs rather than
+  as a net win — this needs a real run before it's trusted either way.
+
+### Changed
+
+- **`max_num_seqs` 2 → 8** in `serve_kat.sh` and `run_pilot_all.sh`, tested
+  2026-08-19: 1.86x concurrency headroom at the 32K context length with no
+  reduction in per-sequence KV budget. Throughput/concurrency only — does not
+  change the SWE-bench score above.
 
 ## [0.2.0] - 2026-08-18
 

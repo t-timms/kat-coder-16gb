@@ -1,0 +1,96 @@
+# EXPERIMENTAL, UNVALIDATED alternative to kat_overrides.yaml. Not the default
+# — select it explicitly with KAT_CONFIG=kat_overrides_context_managed.yaml.
+#
+# Goal: reduce the 18/50 ContextWindowExceeded failures at the 32K ceiling
+# (see results/hosted_vllm__kat-16gb.kat-coder-16gb-50.json) by shrinking
+# per-step context growth instead of raising the context window itself — 32K
+# is a measured hard ceiling on this card (KV budget swings 0.49-1.41 GiB with
+# the Windows desktop's VRAM; 60000 failed twice). FP8 KV-cache quantization
+# is already applied in serve_kat.sh/run_pilot_all.sh; this file is the next
+# lever, not a replacement for it.
+#
+# KNOWN RISK, not yet tested: kat_overrides.yaml's own comment on max_tokens
+# warns that a tight output budget truncates the model's mandatory <think>
+# trace mid-turn, which scores as a format failure rather than incapability.
+# Dropping 3072 -> 1024 here revives exactly that risk. This config may trade
+# ContextWindowExceeded failures for format failures rather than reducing
+# total failures — a real run against results/ above is required before
+# treating this as an improvement.
+#
+# Everything not listed here (tool calling, sampling params, model wiring)
+# is unchanged from kat_overrides.yaml.
+
+agent:
+  # 40 -> 30. kat_overrides.yaml's own step-budget analysis: 32,768 total -
+  # ~2,000 system - ~5,000 instance - 1,024*30 max_tokens leaves ~24,700 for
+  # replayed history, i.e. the model will hit the ceiling well before step 30
+  # in practice. Lowering the nominal limit doesn't change that; it's here so
+  # a run ends on step_limit rather than silently converting to CWE.
+  step_limit: 30
+
+  cost_tracking: "ignore_errors"
+
+model:
+  model_name: "hosted_vllm/kat-16gb"
+  model_kwargs:
+    api_base: "http://localhost:8000/v1"
+    api_key: "EMPTY"
+    temperature: 1.0
+    top_p: 0.95
+    # 3072 -> 1024. See KNOWN RISK above before trusting this value.
+    max_tokens: 1024
+    drop_params: true
+
+  # Truncates tool output at 5,000 chars (down from mini-swe-agent's stock
+  # 10,000), keeping 2,500 from head + 2,500 from tail, to slow context growth
+  # per step without losing the parts of a long output most likely to matter.
+  observation_template: |
+    {% if output.exception_info -%}
+    <exception>{{output.exception_info}}</exception>
+    {% endif -%}
+    <returncode>{{output.returncode}}</returncode>
+    {% if output.output | length < 5000 -%}
+    <output>
+    {{ output.output -}}
+    </output>
+    {%- else -%}
+    <warning>
+    The output of your last command was too long.
+    Please try a different command that produces less output.
+    If you're looking at a file you can try use head, tail or sed to view a smaller number of lines selectively.
+    If you're using grep or find and it produced too much output, you can use a more selective search pattern.
+    If you really need to see something from the full command's output, you can redirect output to a file and then search in that file.
+    </warning>
+    {%- set elided_chars = output.output | length - 5000 -%}
+    <output_head>
+    {{ output.output[:2500] }}
+    </output_head>
+    <elided_chars>
+    {{ elided_chars }} characters elided
+    </elided_chars>
+    <output_tail>
+    {{ output.output[-2500:] }}
+    </output_tail>
+    {%- endif %}
+
+  format_error_template: |
+    {% if finish_reason is defined and (finish_reason == "length" or (finish_reason == "tool_calls" and not has_tool_calls)) -%}
+    Your previous response reached the output token limit (finish_reason={{ finish_reason }}) before you produced a tool call, so it was cut off. Respond more concisely and finish with exactly one bash tool call. If you need to think more, do so briefly.
+    {%- else -%}
+    Tool call error:
+
+    <error>
+    {{error}}
+    </error>
+
+    Here is general guidance on how to submit correct toolcalls:
+
+    Every response needs to use the 'bash' tool at least once to execute commands.
+
+    Call the bash tool with your command as the argument:
+    - Tool: bash
+    - Arguments: {"command": "your_command_here"}
+
+    If you have completed your assignment, please consult the first message about how to
+    submit your solution (you will not be able to continue working on this task after that).
+    {%- endif %}

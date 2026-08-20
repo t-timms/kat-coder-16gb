@@ -25,6 +25,11 @@
 # The parser routes it to reasoning_content and leaves `content` clean, which both
 # keeps the agent's action parseable and keeps the trace OUT of the replayed
 # history. Verified against the installed source, which documents this exact case.
+#
+# --max-num-seqs 8, not 2: tested 2026-08-19, gives 1.86x concurrency headroom
+# at the 32K context length above without reducing available KV per sequence
+# below what a rollout needs. This is a throughput change only — it does not
+# affect the SWE-bench score, do not conflate the two.
 set -uo pipefail
 
 MODEL=~/models/kat-50pct-nvfp4a16-renorm-stripped
@@ -38,18 +43,18 @@ MAXLEN="${MAXLEN:-32768}"
 LOG=~/kat_serve.log
 
 echo "=== starting vLLM (full log -> $LOG) ==="
-~/vllm-env/bin/vllm serve "$MODEL" \
+setsid ~/vllm-env/bin/vllm serve "$MODEL" \
   --served-model-name kat-16gb \
   --port "$PORT" \
   --max-model-len "$MAXLEN" \
-  --max-num-seqs 2 \
+  --max-num-seqs 8 \
   --gpu-memory-utilization 0.92 \
   --kv-cache-dtype fp8 \
   --reasoning-parser qwen3 \
   --enable-prefix-caching \
   --max-num-batched-tokens 4096 \
   --compilation-config '{"cudagraph_capture_sizes":[1,2],"cudagraph_mode":"PIECEWISE"}' \
-  --language-model-only \
+  --enable-auto-tool-choice --tool-call-parser qwen3_xml --language-model-only \
   > "$LOG" 2>&1 &
 
 echo $! > ~/kat_serve.pid
@@ -63,7 +68,7 @@ for i in $(seq 1 150); do
   fi
   if curl -s -o /dev/null -w "%{http_code}" "http://127.0.0.1:$PORT/v1/models" 2>/dev/null | grep -q 200; then
     echo "READY after ~$((i*4))s"
-    grep -a "GPU KV cache size\|Maximum concurrency" "$LOG" | tail -2
+    grep -a "GPU KV cache size\|Maximum concurrency\|CUDA graph" "$LOG" | tail -5
     exit 0
   fi
   sleep 4

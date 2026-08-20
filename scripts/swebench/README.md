@@ -50,6 +50,18 @@ bash scripts/swebench/run_pilot_all.sh 50
 bash scripts/swebench/grade_pilot.sh
 ```
 
+`max_num_seqs` is 8 (tested 2026-08-19, 1.86x concurrency at 32K context,
+throughput only — does not affect the score). To try the unvalidated
+context-budget config instead of the default, aimed at the 18
+ContextWindowExceeded failures below:
+
+```bash
+KAT_CONFIG=kat_overrides_context_managed.yaml bash scripts/swebench/run_pilot_all.sh 50
+```
+
+`$CFGDIR` (`~/kat_swebench`) must have this file alongside `kat_overrides.yaml`
+before running — copy it over from `scripts/swebench/` if it isn't there yet.
+
 ## Results
 
 **50-instance Verified run** (50% REAP + NVFP4A16 model, pre-optimization
@@ -106,5 +118,6 @@ container starts if anything is wrong.
 | `serve_kat.sh` | standalone server (for interactive use) |
 | `preflight_litellm.py` | validates litellm tool calling path |
 | `analyze_pilot.py` | analyzes rollout trajectories |
-| `kat_overrides.yaml` | model config layered on stock swebench.yaml |
+| `kat_overrides.yaml` | model config layered on stock swebench.yaml (default) |
+| `kat_overrides_context_managed.yaml` | opt-in, unvalidated: shorter step limit/max_tokens/observation truncation, targets the CWE failures |
 | `registry.json` | litellm model registry for local vLLM |

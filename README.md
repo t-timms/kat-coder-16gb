@@ -38,6 +38,8 @@ task; context-window work is in progress on `feat/optimize-vllm-and-agent-config
 | Agentic serving config (prefix caching, 45x) | done |
 | HumanEval+ / MBPP+ accuracy | done (89.0% / 90.5%) |
 | SWE-bench Verified via mini-swe-agent | done — 20/50 = 40.0%, 18 CWE (32K ceiling); 60% experiment on `feature/60pct-prune` |
+| Rollout throughput (`max_num_seqs` 2→8) | done, tested — 1.86x concurrency, no score impact |
+| Context-budget experiment (opt-in, targets the 18 CWE above) | scaffolded, unvalidated — see `kat_overrides_context_managed.yaml` |
 | Release checkpoint on Hugging Face | not yet published |
 
 ## Quickstart
@@ -95,6 +97,11 @@ bash scripts/swebench/grade_pilot.sh         # official SWE-bench harness
 The serve + rollout + teardown are combined in one script because starting the
 server from a separate invocation reports READY and then dies when that invocation
 exits. See `scripts/swebench/README.md` for the full agentic pipeline docs.
+
+To try the unvalidated context-budget config aimed at the 18 CWE failures
+above, instead run `KAT_CONFIG=kat_overrides_context_managed.yaml bash
+scripts/swebench/run_pilot_all.sh 50`. Default behavior is unchanged without
+that env var.
 
 **7. Run HumanEval / MBPP+ (non-agentic accuracy)**
 
@@ -232,7 +239,7 @@ scripts/bench/       A/B latency via vllm bench, serving smoke tests
 scripts/swebench/    SWE-bench Verified via mini-swe-agent (agentic evaluation)
 scripts/probes/      cheap precondition checks that run before expensive jobs
 tasks/               lm-eval task definitions
-docs/                environment setup guide
+docs/                environment setup guide, SOTA/optimization research notes
 ```
 
 ## Measurement conventions
