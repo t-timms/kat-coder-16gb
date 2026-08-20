@@ -14,6 +14,7 @@ Pipeline: REAP expert pruning at 50 percent, then NVFP4 quantization, served by 
 | **HumanEval+** | **89.0%** [83.3, 92.9] | greedy, instruct framing, 164 problems |
 | **MBPP+** | **90.5%** [87.1, 93.0] | greedy, instruct framing, 378 problems |
 | **SWE-bench pilot** | 4/4 patches resolved | mini-swe-agent bash-only, 5 instances |
+| **SWE-bench Verified 50** | **20/50 = 40.0%** | 32K-context-limited (18 CWE), pre-optimization config |
 | **Load time** | 28.9 s | CUDA graphs enabled, no CPU offload |
 
 Release candidate: `kat-50pct-nvfp4a16-renorm-stripped`. Renorm-corrected,
@@ -32,7 +33,7 @@ correct on this architecture. No pad collapse, no NaN.
 | CUDA graphs (7.4x over eager) | done |
 | Agentic serving config (prefix caching, 45x) | done |
 | HumanEval+ / MBPP+ accuracy | done (89.0% / 90.5%) |
-| SWE-bench Verified via mini-swe-agent | **pilot done, 50-instance run pending** |
+| SWE-bench Verified via mini-swe-agent | done — 20/50 = 40.0%, 18 CWE (32K ceiling); rerun with optimized serve config pending |
 | Release checkpoint on Hugging Face | not yet published |
 
 ## Quickstart
@@ -135,11 +136,16 @@ whole history every step. Measured on a 13,130-token history:
 Working agentic config:
 
 ```
---max-model-len 32768 --max-num-seqs 2 --gpu-memory-utilization 0.92
+--max-model-len 32768 --max-num-seqs 8 --gpu-memory-utilization 0.92
 --kv-cache-dtype fp8 --enable-prefix-caching --max-num-batched-tokens 4096
---reasoning-parser qwen3 --language-model-only
+--reasoning-parser qwen3 --enable-auto-tool-choice --tool-call-parser qwen3_xml
+--language-model-only
 --compilation-config '{"cudagraph_capture_sizes":[1,2],"cudagraph_mode":"PIECEWISE"}'
 ```
+
+`max_num_seqs=8` is the tested optimum for agentic use: concurrency goes from
+1.32x to 2.14x versus `max_num_seqs=2`, and CUDA graph memory drops from
+0.17 GiB to 0.04 GiB. Startup is ~40 s.
 
 The KV budget fluctuates 0.49-1.41 GiB with the Windows desktop's VRAM.
 Never set `max_model_len` near a measured ceiling; 32768 survives the worst case.
@@ -151,8 +157,8 @@ See `scripts/swebench/README.md` for the full measured table.
 
 - **CUDA graphs work.** They were long believed numerically broken on SM120, and
   that belief is wrong for this model on vLLM 0.20.2. Three settings are required:
-  - `max_num_seqs=2` (for agentic) or `4` (for benchmark). The default 256
-    exceeds available Mamba cache blocks on this hybrid architecture.
+  - `max_num_seqs=8` (for agentic, tested optimal) or `4` (for benchmark). The
+    default 256 exceeds available Mamba cache blocks on this hybrid architecture.
   - `cudagraph_capture_sizes=[1,2]` (agentic) or `[1,2,4,8]` (benchmark).
   - Do **not** set `VLLM_MEMORY_PROFILER_ESTIMATE_CUDAGRAPHS=0` with graphs on.
 - `language_model_only=True` is mandatory. Without it vLLM profiles a 16K-token

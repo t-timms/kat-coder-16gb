@@ -7,6 +7,24 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+### Added
+
+- **SWE-bench Verified 50-instance results:** 20/50 = 40.0% under the standard
+  metric, 20/22 = 90.9% when the model produces a valid patch. Bottlenecks:
+  18 ContextWindowExceeded (32K ceiling), 9 LimitsExceeded, 1 garbage patch
+  out of 23 generated. Results in
+  `results/hosted_vllm__kat-16gb.kat-coder-16gb-50.json`.
+
+### Changed
+
+- **Agentic serve config optimized** (`serve_kat.sh`, tested 2026-08-19):
+  - `max_num_seqs` 2 -> 8: concurrency 1.32x -> 2.14x (+62%) at 32K context,
+    CUDA graph memory 0.17 GiB -> 0.04 GiB.
+  - Startup is ~40 s; `cudagraph_capture_sizes=[1,2]` unchanged (only stable
+    config on this hybrid architecture).
+  - Server launched under `setsid`, so it survives its parent invocation
+    exiting.
+
 ## [0.2.0] - 2026-08-18
 
 Accuracy measured, agentic serving solved, SWE-bench pipeline wired end to end.

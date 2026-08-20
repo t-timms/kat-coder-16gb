@@ -37,7 +37,7 @@ trap cleanup EXIT INT TERM
 echo "=== starting vLLM (full log -> $LOG) ==="
 ~/vllm-env/bin/vllm serve "$MODEL" \
   --served-model-name kat-16gb --port "$PORT" \
-  --max-model-len 32768 --max-num-seqs 2 \
+  --max-model-len 32768 --max-num-seqs 8 \
   --gpu-memory-utilization 0.92 --kv-cache-dtype fp8 \
   --reasoning-parser qwen3 \
   --enable-auto-tool-choice --tool-call-parser qwen3_xml \
