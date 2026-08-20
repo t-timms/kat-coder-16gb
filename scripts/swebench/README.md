@@ -50,6 +50,25 @@ bash scripts/swebench/run_pilot_all.sh 50
 bash scripts/swebench/grade_pilot.sh
 ```
 
+## Results
+
+**50-instance Verified run** (50% REAP + NVFP4A16 model, pre-optimization
+agent config, 2026-08-19):
+
+| metric | value |
+|---|---|
+| resolved | **20/50 = 40.0%** |
+| completed (valid patch produced) | 22 |
+| resolved of completed | 20/22 = 90.9% |
+| ContextWindowExceeded | 18 (32K ceiling) |
+| LimitsExceeded | 9 |
+| garbage/invalid patch | 1 (of 23 generated) |
+
+Result file: `results/hosted_vllm__kat-16gb.kat-coder-16gb-50.json`. The run
+must be disclosed as 32K-step-limited (see Context constraint below). A 60%
+sparsity experiment runs on `feature/60pct-prune` with the identical agent
+config; results will be recorded here when graded.
+
 ## Context constraint
 
 The 32K context window is the safe ceiling. The KV budget fluctuates 0.49-1.41 GiB

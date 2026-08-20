@@ -32,7 +32,7 @@ correct on this architecture. No pad collapse, no NaN.
 | CUDA graphs (7.4x over eager) | done |
 | Agentic serving config (prefix caching, 45x) | done |
 | HumanEval+ / MBPP+ accuracy | done (89.0% / 90.5%) |
-| SWE-bench Verified via mini-swe-agent | **pilot done, 50-instance run pending** |
+| SWE-bench Verified via mini-swe-agent | done — 20/50 = 40.0%, 18 CWE (32K ceiling); 60% experiment on `feature/60pct-prune` |
 | Release checkpoint on Hugging Face | not yet published |
 
 ## Quickstart

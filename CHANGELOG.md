@@ -7,6 +7,14 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+### Added
+
+- **SWE-bench Verified 50-instance results:** 20/50 = 40.0% under the standard
+  metric, 20/22 = 90.9% when the model produces a valid patch. Bottlenecks:
+  18 ContextWindowExceeded (32K ceiling), 9 LimitsExceeded, 1 garbage patch
+  out of 23 generated. Results in
+  `results/hosted_vllm__kat-16gb.kat-coder-16gb-50.json`.
+
 ## [0.2.0] - 2026-08-18
 
 Accuracy measured, agentic serving solved, SWE-bench pipeline wired end to end.
