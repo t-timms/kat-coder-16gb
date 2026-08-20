@@ -23,6 +23,11 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
   mid-turn, which would show up as format failures instead of CWEs rather than
   as a net win — this needs a real run before it's trusted either way.
 
+- **Model card published to Hugging Face:** [`Ttimms/kat-coder-16gb`](https://huggingface.co/Ttimms/kat-coder-16gb),
+  content identical to `HF_MODEL_CARD.md` in this repo. Checkpoint upload
+  (`kat-50pct-nvfp4a16-renorm-stripped`) is pending — it has to be pushed
+  from the machine holding the weights.
+
 ### Changed
 
 - **`max_num_seqs` 2 → 8** in `serve_kat.sh` and `run_pilot_all.sh`, tested

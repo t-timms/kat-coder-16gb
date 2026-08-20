@@ -40,7 +40,7 @@ task; context-window work is in progress on `feat/optimize-vllm-and-agent-config
 | SWE-bench Verified via mini-swe-agent | done — 20/50 = 40.0%, 18 CWE (32K ceiling); 60% experiment on `feature/60pct-prune` |
 | Rollout throughput (`max_num_seqs` 2→8) | done, tested — 1.86x concurrency, no score impact |
 | Context-budget experiment (opt-in, targets the 18 CWE above) | scaffolded, unvalidated — see `kat_overrides_context_managed.yaml` |
-| Release checkpoint on Hugging Face | not yet published |
+| Release checkpoint on Hugging Face | card published ([`Ttimms/kat-coder-16gb`](https://huggingface.co/Ttimms/kat-coder-16gb)); weight upload pending |
 
 ## Quickstart
 
