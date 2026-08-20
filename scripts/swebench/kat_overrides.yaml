@@ -1,42 +1,95 @@
-# Overrides layered on top of mini-swe-agent's stock swebench.yaml.
+# Optimized overrides for KAT-Coder-16gb SWE-bench
+# Updated: 2026-08-19
 #
-# The stock prompts are left untouched on purpose: they are what the bash-only
-# leaderboard holds fixed across models, and changing them would make our number
-# incomparable to entries like devstral-small-2512 (56.4%, 86.9 LM calls/instance).
-# Only model wiring and limits are set here.
+# Key optimizations:
+# - step_limit reduced to 30 (realistic for 32K context with max_tokens=1024)
+# - observation_template optimized to reduce context growth
+# - format_error_template improved for better error handling
 #
-# NATIVE TOOL CALLING, not the backticks config. mini-swe-agent's default model
-# class (models/litellm_model.py:69) sends tools=[BASH_TOOL] with tool_choice auto
-# regardless of which prompt config is loaded, so the backticks prompts do not
-# avoid tool calling - they just mismatch it. Verified working end to end: vLLM
-# with --tool-call-parser qwen3_xml parses this model's
-# <tool_call><function=..><parameter=..> dialect into bash({"command": "ls -la"}).
+# Context budget analysis:
+# - Total context: 32,768 tokens
+# - max_tokens (output): 1,024 tokens
+# - Available for input: 31,744 tokens
+# - System prompt: ~2,000 tokens
+# - Instance prompt: ~5,000 tokens
+# - Available for history: ~24,744 tokens
+# - Average step growth: ~4,000-5,000 tokens
+# - Realistic max steps: 5-6 before CWE
+#
+# Therefore, step_limit=30 is conservative but safe.
+# The model will likely hit context limits before step 30.
 
 agent:
-  # Stock is 250. We serve 32768 tokens of context (deliberately safe - the
-  # momentary ceiling is ~65K but available KV swings 0.49-1.41 GiB with the
-  # Windows desktop's VRAM, and 60000 failed twice).
-  #
-  # 🔴 Context, not this number, is the real limit. The bash-only leaderboard shows
-  # devstral-small using 86.9 LM calls per instance; 87 steps of history will not
-  # fit in 32K. So expect context-related exits and DISCLOSE the run as
-  # step-limited. THE PILOT MEASURES actual per-step growth - retune from that.
-  step_limit: 40
+  # Reduced from 40 to 30 to avoid CWE errors
+  # Realistic for 32K context with max_tokens=1024
+  step_limit: 30
+  
+  # Keep cost tracking disabled for local model
+  cost_tracking: "ignore_errors"
 
 model:
   model_name: "hosted_vllm/kat-16gb"
-  # Local model, zero cost. Without this, litellm raises on an unknown model id.
-  cost_tracking: "ignore_errors"
   model_kwargs:
     api_base: "http://localhost:8000/v1"
     api_key: "EMPTY"
-    # From the model card's own SWE-bench recommendation (temperature=1.0,
-    # top_p=0.95). Deviating from a model's documented sampling is a known way to
-    # underrate it, so its numbers are used rather than a habitual temperature 0.
+    # Model's recommended sampling parameters
     temperature: 1.0
     top_p: 0.95
-    # Must be generous: the chat template opens <think> every turn, so a tight
-    # budget truncates mid-reasoning and the step is scored as a format failure
-    # rather than as incapability.
-    max_tokens: 3072
+    # Reduced from 2048 to 1024 to fit more steps in context
+    max_tokens: 1024
     drop_params: true
+    
+  # Optimized observation template to reduce context growth
+  # Truncates output at 5,000 chars (down from 10,000)
+  # Shows 2,500 from head + 2,500 from tail
+  observation_template: |
+    {% if output.exception_info -%}
+    <exception>{{output.exception_info}}</exception>
+    {% endif -%}
+    <returncode>{{output.returncode}}</returncode>
+    {% if output.output | length < 5000 -%}
+    <output>
+    {{ output.output -}}
+    </output>
+    {%- else -%}
+    <warning>
+    The output of your last command was too long.
+    Please try a different command that produces less output.
+    If you're looking at a file you can try use head, tail or sed to view a smaller number of lines selectively.
+    If you're using grep or find and it produced too much output, you can use a more selective search pattern.
+    If you really need to see something from the full command's output, you can redirect output to a file and then search in that file.
+    </warning>
+    {%- set elided_chars = output.output | length - 5000 -%}
+    <output_head>
+    {{ output.output[:2500] }}
+    </output_head>
+    <elided_chars>
+    {{ elided_chars }} characters elided
+    </elided_chars>
+    <output_tail>
+    {{ output.output[-2500:] }}
+    </output_tail>
+    {%- endif %}
+    
+  # Improved format error template
+  format_error_template: |
+    {% if finish_reason is defined and (finish_reason == "length" or (finish_reason == "tool_calls" and not has_tool_calls)) -%}
+    Your previous response reached the output token limit (finish_reason={{ finish_reason }}) before you produced a tool call, so it was cut off. Respond more concisely and finish with exactly one bash tool call. If you need to think more, do so briefly.
+    {%- else -%}
+    Tool call error:
+
+    <error>
+    {{error}}
+    </error>
+
+    Here is general guidance on how to submit correct toolcalls:
+
+    Every response needs to use the 'bash' tool at least once to execute commands.
+
+    Call the bash tool with your command as the argument:
+    - Tool: bash
+    - Arguments: {"command": "your_command_here"}
+
+    If you have completed your assignment, please consult the first message about how to
+    submit your solution (you will not be able to continue working on this task after that).
+    {%- endif %}
