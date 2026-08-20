@@ -169,3 +169,21 @@ breakdown and required caveats.
 
 Apache 2.0, matching the `reap` and `llm-compressor` toolchains used to build
 this checkpoint.
+
+## Citation
+
+This checkpoint is derived from `Kwaipilot/KAT-Coder-V2.5-Dev`. If you use it,
+please cite the upstream technical report:
+
+```bibtex
+@misc{katcoder_v25_2026,
+  title={{KAT-Coder-V2.5 Technical Report}},
+  author={{KwaiKAT Team}},
+  year={2026},
+  month={July},
+  eprint={2607.05471},
+  archivePrefix={arXiv},
+  primaryClass={cs.AI},
+  url={https://arxiv.org/pdf/2607.05471}
+}
+```
