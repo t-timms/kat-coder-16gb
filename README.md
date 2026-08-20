@@ -13,12 +13,17 @@ Pipeline: REAP expert pruning at 50 percent, then NVFP4 quantization, served by 
 | **Speed** | **149.5 tok/s** median, n=5 | 512 in / 256 out, batch 1, CUDA graphs (PIECEWISE) |
 | **HumanEval+** | **89.0%** [83.3, 92.9] | greedy, instruct framing, 164 problems |
 | **MBPP+** | **90.5%** [87.1, 93.0] | greedy, instruct framing, 378 problems |
-| **SWE-bench pilot** | 4/4 patches resolved | mini-swe-agent bash-only, 5 instances |
+| **SWE-bench Verified** | **40.0%** (20/50 resolved) | mini-swe-agent bash-only, 32K context ceiling; 27/50 empty patch (18 from hitting the ceiling) |
 | **Load time** | 28.9 s | CUDA graphs enabled, no CPU offload |
 
 Release candidate: `kat-50pct-nvfp4a16-renorm-stripped`. Renorm-corrected,
 vision-free, loads on SM120 with no CPU offload. NVFP4 compute is numerically
 correct on this architecture. No pad collapse, no NaN.
+
+SWE-bench Verified is below the competitive bar (Devstral Small 2512, 56.4%
+under the same scaffold) — see Honest positioning. Over half the empty-patch
+failures trace to the 32K context ceiling rather than the model failing the
+task; context-window work is in progress on `feat/optimize-vllm-and-agent-config`.
 
 ## Status
 
