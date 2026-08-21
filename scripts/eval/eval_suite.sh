@@ -18,13 +18,24 @@ set -uo pipefail
 
 export HF_ALLOW_CODE_EVAL=1
 
+REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 LM="${HOME}/vllm-env/bin/lm_eval"
-MODEL="${HOME}/models/kat-50pct-nvfp4a16-renorm-stripped"
-TASKS_DIR="${HOME}/lm_eval_tasks"
-OUT="${HOME}/eval-suite"
+MODEL="${MODEL:-${HOME}/models/kat-50pct-nvfp4a16-renorm-stripped}"
+TASKS_DIR="${REPO}/tasks"
+OUT="${OUT:-${HOME}/eval-suite}"
 LIMIT="${1:-}"
 
 mkdir -p "${OUT}"
+
+# lm-eval ships humaneval_instruct (instruct framing, original tests) and
+# humaneval_plus (EvalPlus tests, completion framing) but not the combination,
+# which is the number this model is reported on. tasks/humaneval_plus_instruct.yaml
+# composes the two. Its `include:` and `!function utils....` references resolve
+# relative to the yaml's own directory, so it has to be installed beside lm-eval's
+# humaneval tasks; --include_path is not enough.
+HE_DIR="$("${HOME}/vllm-env/bin/python" -c 'import lm_eval, os; print(os.path.join(os.path.dirname(lm_eval.__file__), "tasks", "humaneval"))')"
+cp "${TASKS_DIR}/humaneval_plus_instruct.yaml" "${HE_DIR}/humaneval_plus_instruct.yaml"
+echo "installed humaneval_plus_instruct -> ${HE_DIR}"
 
 run_task() {
   local task="$1"
@@ -62,8 +73,12 @@ run_task() {
   res=$(find "${dir}" -name 'results_*.json' 2>/dev/null | head -1)
 
   if [ -n "${res}" ]; then
+    # lm-eval spells this metric two ways depending on the task's filter:
+    # humaneval reports "pass@1,create_test", mbpp reports "pass_at_1,extract_code".
+    # Matching only the first silently produced an empty score for MBPP+ with rc=0.
     local score
-    score=$(grep -oE '"pass@1,[a-z_]*": *[0-9.]+' "${res}" | head -1 | grep -oE '[0-9.]+$')
+    score=$(grep -oE '"pass(@|_at_)1,[a-z_]*": *[0-9.]+' "${res}" | head -1 | grep -oE '[0-9.]+$')
+    [ -z "${score}" ] && score="!! score not found in ${res##*/}"
     local n
     n=$(find "${dir}" -name 'samples_*.jsonl' -exec wc -l {} + 2>/dev/null | tail -1 | awk '{print $1}')
     printf '    pass@1 = %s   (n=%s, %ds, rc=%d)\n' "${score}" "${n}" "${elapsed}" "${rc}"

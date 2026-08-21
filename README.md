@@ -11,8 +11,8 @@ Pipeline: REAP expert pruning at 50 percent, then NVFP4 quantization, served by 
 |---|---|---|
 | **Size** | **12.45 GiB** | REAP 50% + NVFP4A16, vision-stripped |
 | **Speed** | **149.5 tok/s** median, n=5 | 512 in / 256 out, batch 1, CUDA graphs (PIECEWISE) |
-| **HumanEval+** | **89.0%** [83.3, 92.9] | greedy, instruct framing, 164 problems |
-| **MBPP+** | **90.5%** [87.1, 93.0] | greedy, instruct framing, 378 problems |
+| **HumanEval+** | **89.0%** [83.3, 92.9] | greedy, instruct framing, 164 problems; reproduced at 90.9% on the released checkpoint |
+| **MBPP+** | **90.5%** [87.1, 93.0] | greedy, instruct framing, 378 problems; reproduced at 89.9% on the released checkpoint |
 | **SWE-bench Verified** | **40.0%** (20/50 resolved) | mini-swe-agent bash-only, 32K context ceiling; 27/50 empty patch (18 from hitting the ceiling) |
 | **Load time** | 28.9 s | CUDA graphs enabled, no CPU offload |
 

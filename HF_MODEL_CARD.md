@@ -148,6 +148,14 @@ framing, Wilson confidence intervals:
 `KAT-Coder-V2.5-Dev` publishes no HumanEval/MBPP/EvalPlus numbers, so there is
 no published upstream figure to compare these against.
 
+Both figures were re-measured on the released checkpoint itself and reproduced
+inside their intervals: HumanEval+ 90.9% [85.5, 94.4] and MBPP+ 89.9%
+[86.5, 92.6], same problem counts, same greedy decoding. The table reports the
+original measurement. The two differences run in opposite directions
+(+1.9 pp and -0.6 pp), which is greedy-decoding nondeterminism under vLLM's
+batching rather than a difference in weights. Reproduce with
+`bash scripts/eval/eval_suite.sh`.
+
 SWE-bench Verified via the official `swebench.harness.run_evaluation` harness
 against `mini-swe-agent` bash-only rollouts (scaffold: SWE-bench/experiments
 v1.17.2 configuration) — see the dedicated section above for the full
