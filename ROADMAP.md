@@ -13,9 +13,18 @@ than historical.
 - W4A4 measured against the shipped A16 checkpoint (accuracy cost small,
   -0.6pp HumanEval+ / -0.3pp MBPP+, one problem in each, per `CHANGELOG.md`;
   not shipped — see Next Major below).
-- SWE-bench Verified pilot baseline: **20/50 (40.0%)** at 32,768-token context,
-  18 of 30 failures were `ContextWindowExceeded`, not capability failures (20 of
-  22 patch-producing instances resolved).
+- SWE-bench Verified pilot baseline: **20/50 (40.0%)** at 32,768-token context.
+  The 20/50 total and the 22-completed count are independently re-verified
+  (2026-08-21) against the raw committed grading artifact,
+  `results/hosted_vllm__kat-16gb.kat-coder-16gb-50.json`. The specific
+  failure-reason breakdown — 18 of the 30 non-resolved instances attributed to
+  `ContextWindowExceeded` — is stated consistently across five pre-existing
+  repo files (README, CHANGELOG, HF_MODEL_CARD, both swebench config yamls)
+  but its raw per-instance evidence (an `exit_statuses_*.yaml`, the format
+  this harness uses to record failure reasons — confirmed present for other,
+  smaller runs, e.g. `~/swebench_validate1/exit_statuses_*.yaml`) no longer
+  exists on disk for this specific 50-instance run. Carried forward as
+  previously reported, not independently re-verified tonight.
 - Context-window fix measured and 1-instance-validated: `MAXLEN=49152
   MAXSEQS=2` gives 98,304 total KV tokens — both `--workers 2` rollout workers
   hold a full 49,152-token context simultaneously, zero preemption. Config
@@ -29,7 +38,8 @@ than historical.
 
 **Launch the 50-instance SWE-bench Verified pilot** at the validated
 `MAXLEN=49152 MAXSEQS=2` config, to see whether raising context resolves the
-18 `ContextWindowExceeded` failures and moves the score past 40.0%.
+reported `ContextWindowExceeded` failures (see sourcing caveat under Done
+above) and moves the score past 40.0%.
 
 ```bash
 cd ~/kat-coder-16gb/scripts/swebench

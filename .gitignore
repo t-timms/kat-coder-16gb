@@ -17,3 +17,6 @@ swebench_eval/
 !scripts/swebench/registry.json
 kat_serve.log
 kat_serve.pid
+
+# Local Claude Code operating instructions - never publish
+CLAUDE.md
