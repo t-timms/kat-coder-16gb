@@ -1,4 +1,4 @@
-# kat-coder-16gb
+# KAT-Coder-V2.5-Dev-REAP-50-NVFP4A16
 
 Making `Kwaipilot/KAT-Coder-V2.5-Dev` (69.40 SWE-bench Verified) run as a usable
 local agentic coding model inside 16 GB of consumer VRAM, on an RTX 5070 Ti (SM120).
@@ -32,7 +32,7 @@ task; context-window work is in progress on `feat/optimize-vllm-and-agent-config
 | REAP 50% prune (Qwen3.5 MoE support added to reap fork) | done |
 | Router renormalization fix | done, committed for upstream |
 | NVFP4A16 quantization (data-free, 82 s) | done |
-| Vision tower stripped | done (no trained weights existed) |
+| Vision tower stripped — config **and** 333 phantom tensors (0.83 GiB) | done — see [docs/vision_weight_regression_2026-08-20.md](docs/vision_weight_regression_2026-08-20.md) |
 | Speed benchmarked (149.5 tok/s, n=5) | done |
 | CUDA graphs (7.4x over eager) | done |
 | Agentic serving config (prefix caching, 45x) | done |
@@ -40,7 +40,7 @@ task; context-window work is in progress on `feat/optimize-vllm-and-agent-config
 | SWE-bench Verified via mini-swe-agent | done — 20/50 = 40.0%, 18 CWE (32K ceiling); 60% experiment on `feature/60pct-prune` |
 | Rollout throughput (`max_num_seqs` 2→8) | done, tested — 1.86x concurrency, no score impact |
 | Context-budget experiment (opt-in, targets the 18 CWE above) | scaffolded, unvalidated — see `kat_overrides_context_managed.yaml` |
-| Release checkpoint on Hugging Face | card published ([`Ttimms/kat-coder-16gb`](https://huggingface.co/Ttimms/kat-coder-16gb)); weight upload pending |
+| Release checkpoint on Hugging Face | card published ([`Ttimms/KAT-Coder-V2.5-Dev-REAP-50-NVFP4A16`](https://huggingface.co/Ttimms/KAT-Coder-V2.5-Dev-REAP-50-NVFP4A16)); weight upload pending |
 
 ## Quickstart
 
@@ -71,6 +71,9 @@ counted.
 ```bash
 ~/quant-env/bin/python scripts/quantize/quantize_kat.py        # NVFP4A16, 82 s
 ~/quant-env/bin/python scripts/quantize/quantize_kat_w4a4.py   # W4A4, 28.7 min
+
+# build the shippable artifact: strips the phantom vision tower, 13.28 -> 12.45 GiB
+~/quant-env/bin/python scripts/release/build_release_candidate.py
 ```
 
 **4. Confirm it serves and produces real code**
@@ -176,7 +179,13 @@ See `scripts/swebench/README.md` for the full measured table.
 **The model has no vision tower.** The config declares
 `Qwen3_5MoeForConditionalGeneration`, but all 31,333 weight tensors are under
 `model.language_model.`. The declared tower is randomly initialised on every load.
-The release candidate strips the vision config.
+Those random parameters are not harmless. `reap` saves them, the quantizer's ignore
+list (`re:visual.*`) protects them from compression, and they reach the artifact as
+333 untrained BF16 tensors totalling 0.83 GiB — 6.27% of the file. Stripping the
+vision *config* removes three JSON keys and none of that weight.
+`scripts/release/build_release_candidate.py` removes both, which is what takes the
+release candidate from 13.28 GiB to its documented 12.45 GiB. Full investigation:
+[docs/vision_weight_regression_2026-08-20.md](docs/vision_weight_regression_2026-08-20.md).
 
 **Quantization**
 

@@ -7,6 +7,39 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+### Fixed
+
+- **The release checkpoint shipped 0.83 GiB of untrained vision weights.** The
+  artifact measured 13.28 GiB against a documented 12.45 GiB. Cause: the base
+  model declares a vision tower and ships zero weights for it, so transformers
+  randomly initialises 333 tensors at load, `reap` saves them, and the
+  quantizer's `re:visual.*` ignore rule preserves them at full BF16. The old
+  release step stripped `vision_config` from `config.json` — three JSON keys —
+  and left every one of those tensors in `model.safetensors`.
+  `scripts/release/build_release_candidate.py` now removes both, producing
+  12.4512 GiB and matching the published figure exactly. This reduces download
+  size, not VRAM: vLLM's `language_model_only=True` already skipped the tower,
+  so resident weights are ~12.58 GiB before and after. Full investigation in
+  `docs/vision_weight_regression_2026-08-20.md`.
+- **`scripts/bench/smoke_pruned_nvfp4.py` ignored `KAT_MODEL`.** The model path
+  was hardcoded, so the documented step-5 invocation could validate a different
+  checkpoint than the one being shipped. It now reads the environment variable
+  and defaults to the release candidate.
+- **Smoke-test token budget raised 300 -> 768 (`KAT_MAX_TOKENS`).** KAT emits a
+  `<think>` preamble; a 300-token cap could be consumed entirely by reasoning,
+  truncating before any code was emitted and scoring the run as "no recognisable
+  code". Truncation is now reported distinctly from incoherence.
+
+### Changed
+
+- **Renamed to `KAT-Coder-V2.5-Dev-REAP-50-NVFP4A16`** on both GitHub and
+  Hugging Face, matching the `{base}-REAP-{ratio}-{quant}` convention used by
+  comparable checkpoints and the model card's own title. Old URLs redirect.
+- **Added `scripts/release/`**, so building the shippable artifact is a
+  reproducible script rather than an inline snippet in a runbook. It verifies by
+  artifact: it re-parses the written safetensors header, fails if any `visual`
+  tensor survives, and checks the result against the documented size.
+
 ### Added
 
 - **SWE-bench Verified 50-instance results:** 20/50 = 40.0% under the standard
@@ -23,7 +56,7 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
   mid-turn, which would show up as format failures instead of CWEs rather than
   as a net win — this needs a real run before it's trusted either way.
 
-- **Model card published to Hugging Face:** [`Ttimms/kat-coder-16gb`](https://huggingface.co/Ttimms/kat-coder-16gb),
+- **Model card published to Hugging Face:** [`Ttimms/KAT-Coder-V2.5-Dev-REAP-50-NVFP4A16`](https://huggingface.co/Ttimms/KAT-Coder-V2.5-Dev-REAP-50-NVFP4A16),
   content identical to `HF_MODEL_CARD.md` in this repo. Checkpoint upload
   (`kat-50pct-nvfp4a16-renorm-stripped`) is pending — it has to be pushed
   from the machine holding the weights.

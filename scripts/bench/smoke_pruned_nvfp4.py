@@ -1,6 +1,6 @@
 """THE moment of truth: does the pruned+quantized KAT-Coder serve on SM120?
 
-13.28 GiB against 16.3 GB of VRAM, so this loads ENTIRELY on the GPU. That removes
+12.45 GiB against 16.3 GB of VRAM, so this loads ENTIRELY on the GPU. That removes
 the CPU-offload UVA path that crashed the 21.9 GB control checkpoint
 (uva.py:119, illegal memory access) and finally exercises the NVFP4 kernels
 themselves on qwen3_5_moe.
@@ -10,8 +10,11 @@ If this produces coherent code, the product path is proven end to end:
 
 Non-negotiables:
   * enforce_eager=True - CUDA graph capture is numerically broken on SM120.
-  * language_model_only=True - otherwise vLLM profiles a 16384-token image budget
-    through a vision tower that has ZERO trained weights, and grinds for 16+ min.
+  * language_model_only=True - the architecture still declares itself multimodal;
+    without this vLLM profiles a 16384-token image budget through a tower that has
+    ZERO trained weights, and grinds for 16+ min. The release candidate no longer
+    ships that tower at all (scripts/release/build_release_candidate.py), but the
+    intermediate quantized checkpoint still does, so the flag stays.
   * llm.chat(), never apply_chat_template()+generate() - double-BOS fakes corruption.
   * Judge the CONTENT. ZAYA1's failure mode was all-pad output that still "succeeded".
 """
@@ -24,7 +27,9 @@ import time
 
 os.environ.setdefault("VLLM_MEMORY_PROFILER_ESTIMATE_CUDAGRAPHS", "0")
 
-MODEL = os.path.expanduser("~/models/kat-50pct-nvfp4a16")
+MODEL = os.path.expanduser(
+    os.environ.get("KAT_MODEL", "~/models/kat-50pct-nvfp4a16-renorm-stripped")
+)
 
 PROMPTS = [
     "Write a Python function that reverses a singly linked list. Return only code.",
@@ -45,18 +50,25 @@ def main() -> None:
         dtype="bfloat16",
         max_model_len=2048,
         enforce_eager=True,
-        # NO cpu_offload_gb - 13.28 GiB fits natively. This is the whole point.
+        # NO cpu_offload_gb - 12.45 GiB fits natively. This is the whole point.
         # 0.95 asked for 15.12 GiB but only 14.66 of 15.92 GiB is free - the Windows
-        # desktop holds ~1.26 GiB. 0.90 gives a 14.33 GiB budget against 13.28 GiB of
-        # weights, leaving ~1 GiB, which is plenty: KV is ~10 KB/token across the 10
-        # of 40 layers that hold it, so 2048 tokens costs ~20 MB.
+        # desktop holds ~1.26 GiB. 0.90 gives a 14.33 GiB budget, leaving ~1 GiB over
+        # the weights, which is plenty: KV is ~10 KB/token across the 10 of 40 layers
+        # that hold it, so 2048 tokens costs ~20 MB.
+        # Note: resident weights are ~12.58 GiB either way. language_model_only
+        # already skipped the phantom tower, so stripping it shrinks the DOWNLOAD,
+        # not the VRAM footprint.
         gpu_memory_utilization=0.90,
         language_model_only=True,
         trust_remote_code=True,
     )
     print(f"LOAD_OK in {time.time() - t0:.1f}s", flush=True)
 
-    params = SamplingParams(temperature=0.0, max_tokens=300)
+    max_tokens = int(os.environ.get("KAT_MAX_TOKENS", "768"))
+    # 768, not 300: KAT emits a <think> preamble, and a 300-token cap can be spent
+    # entirely on reasoning - the run is then truncated before any code appears and
+    # scored as 'no recognisable code', which is a harness artifact, not a defect.
+    params = SamplingParams(temperature=0.0, max_tokens=max_tokens)
     convs = [[{"role": "user", "content": p}] for p in PROMPTS]
 
     t1 = time.time()
@@ -77,8 +89,11 @@ def main() -> None:
 
         distinct = len(set(ids))
         has_code = ("def " in text) or ("return" in text)
+        truncated = out.outputs[0].finish_reason == "length"
         if distinct <= 3:
             print(f"  !! COLLAPSED: only {distinct} distinct token ids")
+        elif not has_code and truncated:
+            print(f"  !! TRUNCATED at {max_tokens} tokens before emitting code - inconclusive, raise KAT_MAX_TOKENS")
         elif not has_code:
             print("  !! no recognisable code")
         else:

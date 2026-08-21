@@ -106,7 +106,7 @@ above publishes.
 | Quantization scheme | NVFP4A16 — weight-only, data-free, 82 s |
 | Quantization calibration | `evol-codealpaca` (deliberately not the Magicoder set used for evaluation) |
 | Ignored / kept unquantized | `lm_head`, routers, shared expert gates, embeddings, DeltaNet conv1d + linear-attention projections, MTP module |
-| Vision tower | Stripped from config — the base model declares one but ships zero trained weights for it |
+| Vision tower | Removed — both the config declaration and the 333 untrained tensors (0.83 GiB) that transformers materialises for a tower the base model ships no weights for. Stripping only the config leaves the weights in the file; this checkpoint has neither. |
 | Built on | RTX 5070 Ti, 16 GB VRAM, SM120 |
 
 ## Usage
@@ -116,7 +116,7 @@ this model, despite past reports of SM120 CUDA-graph issues on other
 architectures) and native tool calling for agentic use:
 
 ```bash
-vllm serve Ttimms/<repo-name> \
+vllm serve Ttimms/KAT-Coder-V2.5-Dev-REAP-50-NVFP4A16 \
   --served-model-name kat-16gb \
   --max-model-len 32768 --max-num-seqs 8 \
   --gpu-memory-utilization 0.92 --kv-cache-dtype fp8 \
