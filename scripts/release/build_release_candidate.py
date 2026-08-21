@@ -1,26 +1,25 @@
-"""Build the release candidate from the quantized checkpoint.
+"""Assemble the shippable checkpoint from the quantized output.
 
-WHY THIS SCRIPT EXISTS
+THE PHANTOM VISION TOWER
     The base model declares a vision tower and ships ZERO trained weights for it.
-    Transformers materialises those missing parameters as random values at load
-    time, reap then saves them, and the quantizer's ignore list (`re:visual.*`)
-    protects them from compression - so 333 randomly-initialised BF16 tensors,
-    0.83 GiB, survive all the way into the release artifact.
+    Transformers materialises those parameters as random values at load time, reap
+    saves them, and the quantizer's ignore list (`re:visual.*`) keeps them at full
+    BF16 - so 333 untrained tensors, 0.83 GiB, reach the quantized checkpoint.
 
-    Stripping `vision_config` out of config.json (the old runbook step) removes
-    the DECLARATION but not the WEIGHTS. This script removes both, which is what
-    "vision-stripped" was always documented to mean:
+    Removing `vision_config` from config.json removes the DECLARATION but not the
+    WEIGHTS. Both have to go:
 
-        13.28 GiB (as quantized)  -  0.83 GiB (phantom tower)  =  12.45 GiB
+        13.28 GiB (as quantized)  -  0.83 GiB (vision tower)  =  12.45 GiB
 
-    See docs/vision_weight_regression_2026-08-20.md for the full investigation.
+    docs/checkpoint_composition.md accounts for the remaining bytes by group.
 
 WHAT IT DOES
     1. copies every sidecar file from the quantized checkpoint
     2. drops the vision keys from config.json
     3. drops the now-dead `model.visual.*` entries from quantization_config.ignore
-    4. rewrites model.safetensors without any `visual` tensor, by byte-range copy
-       (no torch, no dtype round-trip, no full-file RAM load)
+    4. rewrites model.safetensors without any `visual` tensor, by byte-range copy.
+       The checkpoint mixes U8, F8_E4M3, BF16 and F32; a byte copy cannot silently
+       coerce a dtype the way a load-and-resave can, and never holds the file in RAM.
     5. verifies the result by artifact, never by exit code
 """
 
@@ -126,7 +125,7 @@ def main() -> None:
     print(f"  config: dropped {removed_ignores} dead visual entries from quantization_config.ignore")
 
     # 4. the weights
-    print("  rewriting model.safetensors without the phantom tower...", flush=True)
+    print("  rewriting model.safetensors without the vision tower...", flush=True)
     kept, dropped, dropped_bytes = strip_visual_tensors(SRC / "model.safetensors", DST / "model.safetensors")
 
     # 5. verify by artifact

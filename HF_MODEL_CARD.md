@@ -106,7 +106,7 @@ above publishes.
 | Quantization scheme | NVFP4A16 — weight-only, data-free, 82 s |
 | Quantization calibration | `evol-codealpaca` (deliberately not the Magicoder set used for evaluation) |
 | Ignored / kept unquantized | `lm_head`, routers, shared expert gates, embeddings, DeltaNet conv1d + linear-attention projections, MTP module |
-| Vision tower | Removed — both the config declaration and the 333 untrained tensors (0.83 GiB) that transformers materialises for a tower the base model ships no weights for. Stripping only the config leaves the weights in the file; this checkpoint has neither. |
+| Vision tower | Removed. The base model declares one and ships no weights for it; this checkpoint contains neither the declaration nor the 333 untrained tensors (0.83 GiB) transformers would otherwise materialise. |
 | Built on | RTX 5070 Ti, 16 GB VRAM, SM120 |
 
 ## Usage

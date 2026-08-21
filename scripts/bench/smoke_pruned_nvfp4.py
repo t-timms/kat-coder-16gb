@@ -10,11 +10,10 @@ If this produces coherent code, the product path is proven end to end:
 
 Non-negotiables:
   * enforce_eager=True - CUDA graph capture is numerically broken on SM120.
-  * language_model_only=True - the architecture still declares itself multimodal;
-    without this vLLM profiles a 16384-token image budget through a tower that has
-    ZERO trained weights, and grinds for 16+ min. The release candidate no longer
-    ships that tower at all (scripts/release/build_release_candidate.py), but the
-    intermediate quantized checkpoint still does, so the flag stays.
+  * language_model_only=True - the architecture declares itself multimodal. Without
+    this, vLLM profiles a 16384-token image budget through a vision tower with ZERO
+    trained weights and grinds for 16+ min. Required for the quantized checkpoint,
+    which still carries that tower, and harmless for the released one, which does not.
   * llm.chat(), never apply_chat_template()+generate() - double-BOS fakes corruption.
   * Judge the CONTENT. ZAYA1's failure mode was all-pad output that still "succeeded".
 """
@@ -55,19 +54,18 @@ def main() -> None:
         # desktop holds ~1.26 GiB. 0.90 gives a 14.33 GiB budget, leaving ~1 GiB over
         # the weights, which is plenty: KV is ~10 KB/token across the 10 of 40 layers
         # that hold it, so 2048 tokens costs ~20 MB.
-        # Note: resident weights are ~12.58 GiB either way. language_model_only
-        # already skipped the phantom tower, so stripping it shrinks the DOWNLOAD,
-        # not the VRAM footprint.
+        # Resident weights are ~12.58 GiB regardless of whether the checkpoint carries
+        # the vision tower, since language_model_only declines to load it either way.
         gpu_memory_utilization=0.90,
         language_model_only=True,
         trust_remote_code=True,
     )
     print(f"LOAD_OK in {time.time() - t0:.1f}s", flush=True)
 
+    # KAT emits a <think> preamble before answering, so the budget has to cover
+    # reasoning AND code. Too tight a cap truncates mid-reasoning and reads as a
+    # content failure when it is only a budget failure.
     max_tokens = int(os.environ.get("KAT_MAX_TOKENS", "768"))
-    # 768, not 300: KAT emits a <think> preamble, and a 300-token cap can be spent
-    # entirely on reasoning - the run is then truncated before any code appears and
-    # scored as 'no recognisable code', which is a harness artifact, not a defect.
     params = SamplingParams(temperature=0.0, max_tokens=max_tokens)
     convs = [[{"role": "user", "content": p}] for p in PROMPTS]
 

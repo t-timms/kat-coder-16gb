@@ -23,7 +23,8 @@ correct on this architecture. No pad collapse, no NaN.
 SWE-bench Verified is below the competitive bar (Devstral Small 2512, 56.4%
 under the same scaffold) — see Honest positioning. Over half the empty-patch
 failures trace to the 32K context ceiling rather than the model failing the
-task; context-window work is in progress on `feat/optimize-vllm-and-agent-config`.
+task. An opt-in context-managed agent config is scaffolded for that case and
+is not yet validated — see Status below.
 
 ## Status
 
@@ -32,15 +33,15 @@ task; context-window work is in progress on `feat/optimize-vllm-and-agent-config
 | REAP 50% prune (Qwen3.5 MoE support added to reap fork) | done |
 | Router renormalization fix | done, committed for upstream |
 | NVFP4A16 quantization (data-free, 82 s) | done |
-| Vision tower stripped — config **and** 333 phantom tensors (0.83 GiB) | done — see [docs/vision_weight_regression_2026-08-20.md](docs/vision_weight_regression_2026-08-20.md) |
+| Vision tower removed — declaration and weights | done |
 | Speed benchmarked (149.5 tok/s, n=5) | done |
 | CUDA graphs (7.4x over eager) | done |
 | Agentic serving config (prefix caching, 45x) | done |
 | HumanEval+ / MBPP+ accuracy | done (89.0% / 90.5%) |
-| SWE-bench Verified via mini-swe-agent | done — 20/50 = 40.0%, 18 CWE (32K ceiling); 60% experiment on `feature/60pct-prune` |
+| SWE-bench Verified via mini-swe-agent | done — 20/50 = 40.0%, 18 CWE (32K ceiling); the 60% sparsity comparison runs in [a separate repository](https://github.com/t-timms/kat-coder-16gb-60pct-experiment) |
 | Rollout throughput (`max_num_seqs` 2→8) | done, tested — 1.86x concurrency, no score impact |
 | Context-budget experiment (opt-in, targets the 18 CWE above) | scaffolded, unvalidated — see `kat_overrides_context_managed.yaml` |
-| Release checkpoint on Hugging Face | card published ([`Ttimms/KAT-Coder-V2.5-Dev-REAP-50-NVFP4A16`](https://huggingface.co/Ttimms/KAT-Coder-V2.5-Dev-REAP-50-NVFP4A16)); weight upload pending |
+| Release checkpoint on Hugging Face | published — [`Ttimms/KAT-Coder-V2.5-Dev-REAP-50-NVFP4A16`](https://huggingface.co/Ttimms/KAT-Coder-V2.5-Dev-REAP-50-NVFP4A16) |
 
 ## Quickstart
 
@@ -72,7 +73,7 @@ counted.
 ~/quant-env/bin/python scripts/quantize/quantize_kat.py        # NVFP4A16, 82 s
 ~/quant-env/bin/python scripts/quantize/quantize_kat_w4a4.py   # W4A4, 28.7 min
 
-# build the shippable artifact: strips the phantom vision tower, 13.28 -> 12.45 GiB
+# build the shippable checkpoint (removes the untrained vision tower)
 ~/quant-env/bin/python scripts/release/build_release_candidate.py
 ```
 
@@ -178,14 +179,14 @@ See `scripts/swebench/README.md` for the full measured table.
 
 **The model has no vision tower.** The config declares
 `Qwen3_5MoeForConditionalGeneration`, but all 31,333 weight tensors are under
-`model.language_model.`. The declared tower is randomly initialised on every load.
-Those random parameters are not harmless. `reap` saves them, the quantizer's ignore
-list (`re:visual.*`) protects them from compression, and they reach the artifact as
-333 untrained BF16 tensors totalling 0.83 GiB — 6.27% of the file. Stripping the
-vision *config* removes three JSON keys and none of that weight.
-`scripts/release/build_release_candidate.py` removes both, which is what takes the
-release candidate from 13.28 GiB to its documented 12.45 GiB. Full investigation:
-[docs/vision_weight_regression_2026-08-20.md](docs/vision_weight_regression_2026-08-20.md).
+`model.language_model.`. Transformers materialises the declared tower as random
+values on every load, and anything that saves the model afterwards writes those
+values out — 333 untrained BF16 tensors, 0.83 GiB. The quantizer's `re:visual.*`
+rule keeps them at full precision, and removing `vision_config` strips the
+declaration without touching them.
+`scripts/release/build_release_candidate.py` removes the declaration and the tensors
+together, which is the difference between a 13.28 GiB build artifact and the
+12.45 GiB released checkpoint. See [docs/checkpoint_composition.md](docs/checkpoint_composition.md).
 
 **Quantization**
 
@@ -243,6 +244,7 @@ bash-only scaffold (SWE-bench/experiments, v1.17.2, 86.9 LM calls/instance).
 ```
 scripts/prune/       REAP pruning, calibration stability, the renormalization fix
 scripts/quantize/    NVFP4A16 and NVFP4 W4A4 builds via llm-compressor
+scripts/release/     assemble and verify the shippable checkpoint
 scripts/eval/        HumanEval+/MBPP+, paired evaluation, McNemar
 scripts/bench/       A/B latency via vllm bench, serving smoke tests
 scripts/swebench/    SWE-bench Verified via mini-swe-agent (agentic evaluation)

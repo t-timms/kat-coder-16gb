@@ -78,8 +78,8 @@ agent config, 2026-08-19):
 
 Result file: `results/hosted_vllm__kat-16gb.kat-coder-16gb-50.json`. The run
 must be disclosed as 32K-step-limited (see Context constraint below). A 60%
-sparsity experiment runs on `feature/60pct-prune` with the identical agent
-config; results will be recorded here when graded.
+sparsity experiment runs in [a separate repository](https://github.com/t-timms/kat-coder-16gb-60pct-experiment) with the identical
+agent config, so the ratio is the only variable that differs from this run.
 
 ## Context constraint
 
