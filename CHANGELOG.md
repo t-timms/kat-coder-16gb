@@ -9,6 +9,20 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Added
 
+- **Audited vLLM 0.27.1, the `lna-lab/blackwell-geforce-nvfp4-gemm` community
+  SM120 patches, and NVFP4 KV cache as candidate upgrades; rejected all three
+  for the current checkpoint, with evidence.** Full writeup in
+  `docs/optimization_research_2026-08-21.md`. Headline finding: MoE experts
+  fall back to the Marlin kernel because our NVFP4A16 checkpoint is
+  weight-only (no matching FP4×FP4 hardware MMA path exists for that scheme
+  on *any* GPU, not a device-support gap any patch or vLLM version can close);
+  the community patches turned out to already be upstream in 0.27.1 and would
+  have changed nothing. 0.27.1 also carries a new fixed ~1 GiB memory overhead
+  that broke KV cache allocation at settings 0.26.0 runs comfortably on.
+  Serving config is unchanged as a result — `kat_overrides_sota.yaml`'s
+  `MAXLEN=49152 MAXSEQS=2` on vLLM 0.26.0 remains correct. See `ROADMAP.md`
+  for the actual lever (W4A4 re-quantization) this audit points to next.
+
 - **Measured NVFP4A16 against NVFP4 W4A4** on the same pruned checkpoint, same
   ignore list, same greedy decoding. W4A4 costs -0.6 pp on HumanEval+ and -0.3 pp
   on MBPP+, one problem in each; QSpec's 38.73% HumanEval collapse did not
