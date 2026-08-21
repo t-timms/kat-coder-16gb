@@ -1,11 +1,18 @@
 """Build the W4A4 twin of the 13.28 GiB NVFP4A16 checkpoint.
 
 THE QUESTION THIS ANSWERS
-    The weight-only build runs at 8.9 tok/s because vLLM routes NVFP4A16 to the
-    MARLIN kernel, which dequantises to bf16 - the native FP4 path (VLLM_CUTLASS)
-    is unavailable to weight-only schemes. W4A4 unlocks it. But QSpec measured W4A4
-    losing 38.73% on HumanEval where W4A16 barely moved (INT4-era data; NVFP4's
-    per-16 block scaling should be far kinder).
+    vLLM routes NVFP4A16 to the MARLIN kernel, which decodes 4-bit weights and
+    computes in bf16; the native FP4 GEMM paths are reachable only by schemes that
+    also quantise activations. W4A4 reaches them.
+
+    On the motivation, honestly: this script was written when the weight-only build
+    measured 8.9 tok/s, BEFORE CUDA graphs were found to work on this card. They
+    do, and the same weight-only build now serves at 149.5 tok/s, so W4A4 is not a
+    rescue from an unusable baseline. The open question is narrower and still worth
+    answering: does a native FP4 path beat Marlin plus CUDA graphs at all, and what
+    does it cost in accuracy? QSpec measured W4A4 losing 38.73% on HumanEval where
+    W4A16 barely moved (INT4-era data; NVFP4's per-16 block scaling should be far
+    kinder).
 
     Same source checkpoint, same ignore list, ONLY the scheme differs, so the
     comparison is clean: speed vs coding accuracy, at identical file size.

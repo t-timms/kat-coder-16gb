@@ -9,7 +9,7 @@ Pipeline: REAP expert pruning at 50 percent, then NVFP4 quantization, served by 
 
 | metric | value | conditions |
 |---|---|---|
-| **Size** | **12.45 GiB** | REAP 50% + NVFP4A16, vision-stripped |
+| **Size** | **12.45 GiB** | REAP 50% + NVFP4A16, vision-stripped; 3 shards + index |
 | **Speed** | **149.5 tok/s** median, n=5 | 512 in / 256 out, batch 1, CUDA graphs (PIECEWISE) |
 | **HumanEval+** | **89.0%** [83.3, 92.9] | greedy, instruct framing, 164 problems; reproduced at 90.9% on the released checkpoint |
 | **MBPP+** | **90.5%** [87.1, 93.0] | greedy, instruct framing, 378 problems; reproduced at 89.9% on the released checkpoint |
@@ -194,7 +194,10 @@ together, which is the difference between a 13.28 GiB build artifact and the
 
 - `NVFP4A16` (weight-only) is **data free** and takes 82 seconds.
 - `NVFP4` (W4A4) needs real calibration and takes 28.7 minutes.
-- Both produce the same size. Weight-only wins on speed (1.32x) and accuracy safety.
+- Both produce the same size. Weight-only is data free and carries none of W4A4's
+  activation-quantization accuracy risk. Their relative *serving* speed on this
+  card is not yet measured: NVFP4A16 is routed to Marlin, so whether a native FP4
+  path beats Marlin plus CUDA graphs is an open question rather than a settled one.
 - Pass `processor=tokenizer` to `oneshot` to avoid the phantom video processor.
 
 **Pruning**

@@ -11,6 +11,8 @@ tags:
   - pruning
   - nvfp4
   - nvfp4a16
+  - fp4
+  - 4-bit
   - compressed-tensors
   - quantization
   - vllm
@@ -110,7 +112,9 @@ above publishes.
 | Quantization calibration | `evol-codealpaca` (deliberately not the Magicoder set used for evaluation) |
 | Ignored / kept unquantized | `lm_head`, routers, shared expert gates, embeddings, DeltaNet conv1d + linear-attention projections, MTP module |
 | Vision tower | Removed. The base model declares one and ships no weights for it; this checkpoint contains neither the declaration nor the 333 untrained tensors (0.83 GiB) transformers would otherwise materialise. |
-| Built on | RTX 5070 Ti, 16 GB VRAM, SM120 |
+| Files | 3 safetensors shards of ~5 GiB plus `model.safetensors.index.json`, matching the base model's layout, so an interrupted download resumes at shard granularity |
+| Built on | RTX 5070 Ti, 16 GB VRAM, SM120 (compute capability 12.0) |
+| Serving kernel | vLLM selects `MarlinNvFp4LinearKernel` on this card: 4-bit weights are decoded and the GEMM runs in bf16. NVFP4A16 is weight-only, so no FP4 arithmetic is required. A native FP4 path for SM120 exists via FlashInfer CuTeDSL but is not used here and is unmeasured. |
 
 ## Usage
 
