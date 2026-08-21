@@ -9,6 +9,17 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Added
 
+- **Measured NVFP4A16 against NVFP4 W4A4** on the same pruned checkpoint, same
+  ignore list, same greedy decoding. W4A4 costs -0.6 pp on HumanEval+ and -0.3 pp
+  on MBPP+, one problem in each; QSpec's 38.73% HumanEval collapse did not
+  reproduce, that figure being INT4-era rather than NVFP4. The scheme also decides
+  the kernel: vLLM routes A16 to Marlin and reports no native FP4 support, while
+  W4A4 reaches `FlashInferCutlassNvFp4LinearKernel`, so the native FP4 GEMM on
+  SM120 is available only to schemes that quantize activations. W4A4's first load
+  costs 833 s of FlashInfer JIT against roughly 40 s for A16. Raw results in
+  `results/eval-w4a4/`. Not published as a checkpoint: the accuracy is a wash and
+  the JIT cost is a usability trap.
+
 - **`scripts/probes/verify_repo.py` and a `verify` CI workflow.** Checks the
   invariants whose violations were actually found here: unresolvable relative
   links, duplicate headings inside a changelog release, Python that does not

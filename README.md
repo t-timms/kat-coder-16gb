@@ -194,10 +194,32 @@ together, which is the difference between a 13.28 GiB build artifact and the
 
 - `NVFP4A16` (weight-only) is **data free** and takes 82 seconds.
 - `NVFP4` (W4A4) needs real calibration and takes 28.7 minutes.
-- Both produce the same size. Weight-only is data free and carries none of W4A4's
-  activation-quantization accuracy risk. Their relative *serving* speed on this
-  card is not yet measured: NVFP4A16 is routed to Marlin, so whether a native FP4
-  path beats Marlin plus CUDA graphs is an open question rather than a settled one.
+- Both produce the same size: 12.4532 GiB (W4A4) against 12.4512 GiB (A16), after
+  the vision tower is removed from each.
+- **The scheme decides which kernel you get.** vLLM routes NVFP4A16 to
+  `MarlinNvFp4LinearKernel`, logging that the GPU has no native FP4 support, and
+  routes W4A4 to `FlashInferCutlassNvFp4LinearKernel` with no such warning. The
+  native FP4 GEMM on SM120 is reachable only by a scheme that also quantizes
+  activations; weight-only cannot reach it at any setting.
+- **W4A4 costs almost nothing in accuracy here**, which is not what the prior
+  literature predicts. Same pruned source, same ignore list, same greedy decoding:
+
+  | benchmark | NVFP4A16 | NVFP4 W4A4 | delta | n |
+  |---|---:|---:|---:|---:|
+  | HumanEval | 95.7% | 93.3% | -2.4 pp (157 -> 153) | 164 |
+  | HumanEval+ | 90.9% | 90.2% | -0.6 pp (149 -> 148) | 164 |
+  | MBPP+ | 89.9% | 89.7% | -0.3 pp (340 -> 339) | 378 |
+
+  QSpec measured W4A4 losing 38.73% on HumanEval where W4A16 barely moved. That
+  did not reproduce: the gap here is one problem on both EvalPlus benchmarks. The
+  QSpec result is INT4-era, and NVFP4's per-16 block scaling with FP8 scales is a
+  far better conditioned format. All three deltas are negative, so a small real
+  cost is likely rather than pure noise, but every interval overlaps heavily.
+  Raw results in `results/eval-w4a4/`.
+- W4A4's first load cost **833 s** against roughly 40 s for A16, because FlashInfer
+  JIT-compiles its kernels; the cache persists, so later loads are normal. Relative
+  serving *throughput* is still unmeasured - that needs `scripts/bench/bench_ab.sh`,
+  and the smoke test is not a benchmark.
 - Pass `processor=tokenizer` to `oneshot` to avoid the phantom video processor.
 
 **Pruning**
