@@ -136,3 +136,28 @@ See `ROADMAP.md`. Nothing in tonight's findings changes the plan to run the
 50-instance SWE-bench pilot at `MAXLEN=49152 MAXSEQS=2` — that number was
 already measured and validated on 2026-08-21 before this investigation started,
 and remains the target for the next session.
+
+## Addendum: a self-correction, and a correction of that correction
+
+A later self-audit pass this same session checked README.md's "Honest
+positioning" claim that `gbuzhf/KAT-Coder-V2.5-Dev-REAP-205E-MTP-GGUF` exists
+as a REAP-pruned GGUF of this base model. The check was done by web-searching
+and fetching the closest-named result, `gbuzhf/KAT-Coder-V2.5-Dev-MTP-GGUF`
+(no "REAP-205E" segment) — which turned out to be a *different, real* repo by
+the same author: the full unpruned model with a grafted MTP head, no
+pruning at all. Concluding from that mismatch that README's claim was wrong,
+`ROADMAP.md` and a prior-session memory note were both "corrected" to say the
+205-expert REAP GGUF didn't exist.
+
+It does. Fetched directly by its exact repo ID (`gbuzhf/KAT-Coder-V2.5-Dev-REAP-205E-MTP-GGUF`),
+not a search result: real repo, REAP-pruned 256→205 experts (19.9%,
+data-free saliency ranking), same grafted MTP head, 5.3K downloads, with its
+own KLD-based quality disclosure (mean KLD 0.059, 94.6% top-1 agreement, no
+coding benchmark run). README.md and HF_MODEL_CARD.md's original claims were
+correct and needed no fix. `ROADMAP.md` and memory have been corrected back,
+this time citing both of the author's two distinct repos by exact ID.
+
+**Why this happened**: a fuzzy match (web search for a plausible name) was
+treated as equivalent to checking the exact claimed identifier. The lesson
+generalizes beyond this one fact: verifying a specific claim means looking up
+that specific identifier, not a similar one that a search surfaces first.

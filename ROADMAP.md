@@ -10,9 +10,10 @@ than historical.
   [`Ttimms/KAT-Coder-V2.5-Dev-REAP-50-NVFP4A16`](https://huggingface.co/Ttimms/KAT-Coder-V2.5-Dev-REAP-50-NVFP4A16),
   12.45 GiB, fits a single 16 GB SM120 card. Accuracy reproduced on the shipped
   weights (HumanEval+, MBPP+ both inside published confidence intervals).
-- W4A4 measured against the shipped A16 checkpoint (accuracy cost small,
-  -0.6pp HumanEval+ / -0.3pp MBPP+, one problem in each, per `CHANGELOG.md`;
-  not shipped — see Next Major below).
+- W4A4 measured against the shipped A16 checkpoint (accuracy cost small: per
+  `README.md`'s full table, -2.4pp HumanEval, -0.6pp HumanEval+, -0.3pp MBPP+
+  — one problem apiece on the two EvalPlus sets; not shipped — see Next Major
+  below).
 - SWE-bench Verified pilot baseline: **20/50 (40.0%)** at 32,768-token context.
   The 20/50 total and the 22-completed count are independently re-verified
   (2026-08-21) against the raw committed grading artifact,
@@ -64,9 +65,9 @@ NVFP4A16 (weight-only), and real FP4 tensor-core kernels require FP4×FP4
 scheme to reach them, on any GPU, so MoE experts always fall back to Marlin
 regardless of vLLM version or device patches. Already measured on this exact
 model (2026-08-20 entry): W4A4 reaches native kernels, ~+31% throughput,
--0.6pp HumanEval+ / -0.3pp MBPP+ accuracy cost (one problem in each) — small
-relative to the ~38pp INT4-era collapse the older literature assumed (NVFP4's
-per-16-block scaling holds up much better).
+-2.4pp HumanEval / -0.6pp HumanEval+ / -0.3pp MBPP+ accuracy cost (README's
+full table) — small relative to the ~38pp INT4-era collapse the older
+literature assumed (NVFP4's per-16-block scaling holds up much better).
 
 Scope for that project:
 
@@ -98,14 +99,22 @@ checkpoint but weren't tested against W4A4's different kernel path.
 
 - GGUF quant for reach (llama.cpp/Ollama/LM Studio compatible) — current
   model has 74 HF downloads (verified 2026-08-21); NVFP4A16 needs vLLM +
-  Blackwell specifically, which caps the addressable audience. Verified
-  2026-08-21 (prior "205 experts, REAP" note in this doc was wrong and has
-  been removed): `gbuzhf/KAT-Coder-V2.5-Dev-MTP-GGUF` (45.3K downloads) is
-  **not** REAP-pruned — it's the full, unpruned `Kwaipilot/KAT-Coder-V2.5-Dev`
-  quantized to GGUF, with an MTP head grafted from Qwen3.6-35B-A3B (their
-  README independently confirms our own finding: KAT ships
-  `mtp_num_hidden_layers: 0`, no native draft head). Not a fair architecture
-  comparison to our 50%-pruned checkpoint; if we ship a GGUF it would be the
-  first REAP-pruned one for this base model.
+  Blackwell specifically, which caps the addressable audience. Re-verified
+  2026-08-21, correcting an error introduced earlier in this same session
+  (see `docs/optimization_research_2026-08-21.md` addendum for the full
+  story): the same author (`gbuzhf`) publishes two distinct GGUF repos for
+  this base model —
+  [`KAT-Coder-V2.5-Dev-MTP-GGUF`](https://huggingface.co/gbuzhf/KAT-Coder-V2.5-Dev-MTP-GGUF)
+  (45.3K downloads, full unpruned model, MTP head grafted from
+  Qwen3.6-35B-A3B) and
+  [`KAT-Coder-V2.5-Dev-REAP-205E-MTP-GGUF`](https://huggingface.co/gbuzhf/KAT-Coder-V2.5-Dev-REAP-205E-MTP-GGUF)
+  (5.3K downloads, REAP-pruned **256→205 experts, 19.9%** — a much lighter
+  prune than our 50% — same grafted MTP head, KLD-measured against the
+  unpruned original: mean KLD 0.059, 94.6% top-1 token agreement, no
+  downstream coding benchmark run). `README.md`'s "Honest positioning" and
+  `HF_MODEL_CARD.md`'s "Prior art" sections cite the second (205E) repo
+  correctly — no fix needed there. If we ship a GGUF, the useful comparison
+  is prune depth (50% vs. their 19.9%) and that we'd publish SWE-bench
+  numbers where they explicitly do not.
 - Base-model swap to Ornith-1.5-35B-A3B — tracked separately in the
   `sota-ornith-build` branch of the private 60%-experiment repo, not this one.
