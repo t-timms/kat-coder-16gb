@@ -28,10 +28,12 @@ agent:
   # a run ends on step_limit rather than silently converting to CWE.
   step_limit: 30
 
-  cost_tracking: "ignore_errors"
-
 model:
   model_name: "hosted_vllm/kat-16gb"
+  # MUST sit here, a sibling of model_name - not under agent:. litellm reads it
+  # from the model config; misplaced, it raises "Error calculating cost for model"
+  # on every instance. Caught by a 1-instance validation run, 2026-08-21.
+  cost_tracking: "ignore_errors"
   model_kwargs:
     api_base: "http://localhost:8000/v1"
     api_key: "EMPTY"

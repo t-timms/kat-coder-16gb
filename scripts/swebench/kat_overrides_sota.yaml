@@ -43,10 +43,13 @@ agent:
   # mini-swe-agent allows 250 and devstral-small averages 86.9 LM calls per
   # instance, so 65 moves toward the reference scaffold rather than away from it.
   step_limit: 65
-  cost_tracking: "ignore_errors"
 
 model:
   model_name: "hosted_vllm/kat-16gb"
+  # MUST sit here, a sibling of model_name - not under agent:. litellm reads it
+  # from the model config; misplaced, it raises "Error calculating cost for model"
+  # on every instance. Caught by a 1-instance validation run, 2026-08-21.
+  cost_tracking: "ignore_errors"
   model_kwargs:
     api_base: "http://localhost:8000/v1"
     api_key: "EMPTY"
