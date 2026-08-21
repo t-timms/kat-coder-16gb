@@ -1,0 +1,108 @@
+# SOTA agentic config. Every number here is derived from a measurement taken on
+# this card, not from the stock defaults or from guesswork.
+#
+# WHAT CHANGED AND WHY
+#
+# The 50-instance baseline scored 20/50 with 18 ContextWindowExceeded failures at
+# a 32,768-token window. Those instances did not fail on capability: 20 of the 22
+# that produced a patch resolved it. They ran out of budget.
+#
+# Probed on 2026-08-21 with a clean GPU (no leaked VLLM::EngineCore holding VRAM,
+# which is what made earlier probes read low):
+#
+#   max_model_len 49152, max_num_seqs 2
+#     Available KV cache memory : 1.22 GiB
+#     GPU KV cache size         : 98,304 tokens
+#     Maximum concurrency       : 2.00x at 49,152 tokens per request
+#
+# 98,304 is exactly 2 x 49,152, so BOTH rollout workers hold a full-length context
+# at once with no preemption. That matters beyond context: preemption forces
+# recompute, which would destroy the 45x prefix-cache win the agent loop depends
+# on. Serving args live in run_pilot_all.sh (MAXLEN/MAXSEQS).
+#
+# max_num_seqs drops 8 -> 2 deliberately. Eight was tuned for throughput and costs
+# activation memory that is worth more here as KV. The rollout runs --workers 2,
+# so two is the number that matters.
+#
+# WHAT WAS DELIBERATELY NOT COPIED FROM kat_overrides_context_managed.yaml
+#
+# That config drops max_tokens 3072 -> 1024, and flags the risk itself. Measured
+# on this model: the <think> preamble alone consumed 300 tokens without finishing,
+# and at a 768-token cap one smoke prompt was still truncated mid-reasoning. A
+# 1024 cap would convert ContextWindowExceeded failures into format failures
+# rather than removing them. max_tokens stays at 3072; the context window is
+# raised instead, which addresses the actual constraint.
+#
+# Its 5,000-char observation truncation IS adopted: tool output compresses without
+# costing reasoning quality, unlike the model's own output budget.
+
+agent:
+  # 40 -> 65, derived rather than picked. Usable history went from roughly
+  # 32,768 - 7,000 = 25,768 tokens to 49,152 - 7,000 = 42,152, a factor of 1.63.
+  # If 40 steps exhausted the old budget, ~65 exhausts the new one. Stock
+  # mini-swe-agent allows 250 and devstral-small averages 86.9 LM calls per
+  # instance, so 65 moves toward the reference scaffold rather than away from it.
+  step_limit: 65
+  cost_tracking: "ignore_errors"
+
+model:
+  model_name: "hosted_vllm/kat-16gb"
+  model_kwargs:
+    api_base: "http://localhost:8000/v1"
+    api_key: "EMPTY"
+    temperature: 1.0
+    top_p: 0.95
+    # Unchanged from the tested baseline. See note above before lowering.
+    max_tokens: 3072
+    drop_params: true
+
+  observation_template: |
+    {% if output.exception_info -%}
+    <exception>{{output.exception_info}}</exception>
+    {% endif -%}
+    <returncode>{{output.returncode}}</returncode>
+    {% if output.output | length < 5000 -%}
+    <output>
+    {{ output.output -}}
+    </output>
+    {%- else -%}
+    <warning>
+    The output of your last command was too long.
+    Please try a different command that produces less output.
+    If you're looking at a file you can try use head, tail or sed to view a smaller number of lines selectively.
+    If you're using grep or find and it produced too much output, you can use a more selective search pattern.
+    If you really need to see something from the full command's output, you can redirect output to a file and then search in that file.
+    </warning>
+    {%- set elided_chars = output.output | length - 5000 -%}
+    <output_head>
+    {{ output.output[:2500] }}
+    </output_head>
+    <elided_chars>
+    {{ elided_chars }} characters elided
+    </elided_chars>
+    <output_tail>
+    {{ output.output[-2500:] }}
+    </output_tail>
+    {%- endif %}
+
+  format_error_template: |
+    {% if finish_reason is defined and (finish_reason == "length" or (finish_reason == "tool_calls" and not has_tool_calls)) -%}
+    Your previous response reached the output token limit (finish_reason={{ finish_reason }}) before you produced a tool call, so it was cut off. Respond more concisely and finish with exactly one bash tool call. If you need to think more, do so briefly.
+    {%- else -%}
+    Tool call error:
+
+    <error>
+    {{error}}
+    </error>
+
+    Here is general guidance on how to submit correct toolcalls:
+
+    Every response needs to use the 'bash' tool at least once to execute commands.
+
+    Call the bash tool with your command as the argument:
+    - Tool: bash
+    - Arguments: {"command": "your_command_here"}
+
+    If you have completed your assignment, please consult the first message about how to
+    submit your solution (you will not be able to continue working on this task after that).
+    {%- endif %}

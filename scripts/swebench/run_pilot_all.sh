@@ -26,6 +26,12 @@ CFGDIR=~/kat_swebench
 # to try the unvalidated context-budget experiment instead (see that file for
 # what it changes and the known risk it hasn't been tested against).
 KAT_CONFIG="${KAT_CONFIG:-kat_overrides.yaml}"
+# Serving limits. Defaults reproduce the 40.0% baseline exactly.
+# For the measured high-context config (2026-08-21 probe, clean GPU):
+#   MAXLEN=49152 MAXSEQS=2  -> 1.22 GiB KV, 98,304 tokens, 2.00x concurrency,
+#   i.e. both --workers 2 rollouts hold a full-length context with no preemption.
+MAXLEN="${MAXLEN:-32768}"
+MAXSEQS="${MAXSEQS:-8}"
 STOCK=~/swebench-env/lib/python3.12/site-packages/minisweagent/config/benchmarks/swebench.yaml
 LOG=~/kat_serve.log
 
@@ -35,13 +41,23 @@ cleanup () {
     kill "$SERVER_PID" 2>/dev/null
     wait "$SERVER_PID" 2>/dev/null
   fi
+  # vLLM's engine renames its process to VLLM::EngineCore, so it does NOT match
+  # "vllm serve" and survives killing the parent. A leaked engine holds the whole
+  # weight allocation and silently starves the next run's KV cache - observed
+  # 2026-08-21, where it made a 49152 probe fail with only 14.35 GiB free.
+  pkill -9 -f "VLLM::EngineCore" 2>/dev/null
+  sleep 5
+  local held
+  held=$(nvidia-smi --query-gpu=memory.used --format=csv,noheader 2>/dev/null)
+  echo "=== GPU after teardown: ${held:-unknown} ==="
 }
 trap cleanup EXIT INT TERM
 
 echo "=== starting vLLM (full log -> $LOG) ==="
+echo "    max_model_len=$MAXLEN  max_num_seqs=$MAXSEQS  config=$KAT_CONFIG"
 ~/vllm-env/bin/vllm serve "$MODEL" \
   --served-model-name kat-16gb --port "$PORT" \
-  --max-model-len 32768 --max-num-seqs 8 \
+  --max-model-len "$MAXLEN" --max-num-seqs "$MAXSEQS" \
   --gpu-memory-utilization 0.92 --kv-cache-dtype fp8 \
   --reasoning-parser qwen3 \
   --enable-auto-tool-choice --tool-call-parser qwen3_xml \
