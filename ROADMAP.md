@@ -11,7 +11,8 @@ than historical.
   12.45 GiB, fits a single 16 GB SM120 card. Accuracy reproduced on the shipped
   weights (HumanEval+, MBPP+ both inside published confidence intervals).
 - W4A4 measured against the shipped A16 checkpoint (accuracy cost small,
-  -0.3 to -2.4pp; not shipped — see Next Major below).
+  -0.6pp HumanEval+ / -0.3pp MBPP+, one problem in each, per `CHANGELOG.md`;
+  not shipped — see Next Major below).
 - SWE-bench Verified pilot baseline: **20/50 (40.0%)** at 32,768-token context,
   18 of 30 failures were `ContextWindowExceeded`, not capability failures (20 of
   22 patch-producing instances resolved).
@@ -53,9 +54,9 @@ NVFP4A16 (weight-only), and real FP4 tensor-core kernels require FP4×FP4
 scheme to reach them, on any GPU, so MoE experts always fall back to Marlin
 regardless of vLLM version or device patches. Already measured on this exact
 model (2026-08-20 entry): W4A4 reaches native kernels, ~+31% throughput,
--0.3 to -2.4pp accuracy cost — small relative to the ~38pp INT4-era collapse
-the older literature assumed (NVFP4's per-16-block scaling holds up much
-better).
+-0.6pp HumanEval+ / -0.3pp MBPP+ accuracy cost (one problem in each) — small
+relative to the ~38pp INT4-era collapse the older literature assumed (NVFP4's
+per-16-block scaling holds up much better).
 
 Scope for that project:
 
@@ -86,9 +87,15 @@ checkpoint but weren't tested against W4A4's different kernel path.
 ## Longer-horizon / not scheduled
 
 - GGUF quant for reach (llama.cpp/Ollama/LM Studio compatible) — current
-  model has 74 HF downloads; NVFP4A16 needs vLLM + Blackwell specifically,
-  which caps the addressable audience. A comparable REAP GGUF of this base
-  model already exists (`gbuzhf/KAT-Coder-V2.5-Dev-MTP-GGUF`, 205 experts vs
-  this project's 128, no renorm fix, grafted MTP head from a sibling model).
+  model has 74 HF downloads (verified 2026-08-21); NVFP4A16 needs vLLM +
+  Blackwell specifically, which caps the addressable audience. Verified
+  2026-08-21 (prior "205 experts, REAP" note in this doc was wrong and has
+  been removed): `gbuzhf/KAT-Coder-V2.5-Dev-MTP-GGUF` (45.3K downloads) is
+  **not** REAP-pruned — it's the full, unpruned `Kwaipilot/KAT-Coder-V2.5-Dev`
+  quantized to GGUF, with an MTP head grafted from Qwen3.6-35B-A3B (their
+  README independently confirms our own finding: KAT ships
+  `mtp_num_hidden_layers: 0`, no native draft head). Not a fair architecture
+  comparison to our 50%-pruned checkpoint; if we ship a GGUF it would be the
+  first REAP-pruned one for this base model.
 - Base-model swap to Ornith-1.5-35B-A3B — tracked separately in the
   `sota-ornith-build` branch of the private 60%-experiment repo, not this one.
