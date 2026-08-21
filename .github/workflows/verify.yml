@@ -1,0 +1,33 @@
+name: verify
+
+# Repository invariants only. Nothing here needs a GPU, a checkpoint, or any of
+# the four pipeline environments - those are documented in docs/environment.md and
+# cannot run in CI. The point is to catch the cheap failures automatically so the
+# expensive ones get human attention.
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Repository invariants
+        run: python scripts/probes/verify_repo.py
+
+      - name: Shell syntax
+        run: |
+          fail=0
+          while IFS= read -r f; do
+            bash -n "$f" || { echo "::error file=$f::bash syntax error"; fail=1; }
+          done < <(find scripts -name '*.sh')
+          exit $fail

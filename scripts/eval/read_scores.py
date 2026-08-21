@@ -47,7 +47,9 @@ for task_dir in sorted(ROOT.iterdir()):
             if key == "alias" or not isinstance(val, (int, float)):
                 continue
             line = f"  {key:24s} {val:.4f}"
-            if 0.0 <= val <= 1.0 and n:
+            # A standard error is not a proportion, so a Wilson interval on one
+            # is meaningless. Report those as point estimates only.
+            if "stderr" not in key and 0.0 <= val <= 1.0 and n:
                 lo, hi = wilson(round(val * n), n)
                 line += f"   n={n}  95% CI [{lo * 100:.1f}, {hi * 100:.1f}]"
                 line += f"   = {val * 100:.1f}%"

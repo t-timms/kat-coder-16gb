@@ -16,9 +16,11 @@ Pipeline: REAP expert pruning at 50 percent, then NVFP4 quantization, served by 
 | **SWE-bench Verified** | **40.0%** (20/50 resolved) | mini-swe-agent bash-only, 32K context ceiling; 27/50 empty patch (18 from hitting the ceiling) |
 | **Load time** | 28.9 s | CUDA graphs enabled, no CPU offload |
 
-Release candidate: `kat-50pct-nvfp4a16-renorm-stripped`. Renorm-corrected,
-vision-free, loads on SM120 with no CPU offload. NVFP4 compute is numerically
-correct on this architecture. No pad collapse, no NaN.
+Released checkpoint: [`Ttimms/KAT-Coder-V2.5-Dev-REAP-50-NVFP4A16`](https://huggingface.co/Ttimms/KAT-Coder-V2.5-Dev-REAP-50-NVFP4A16).
+Renorm-corrected, vision-free, loads on SM120 (compute capability 12.0) with no
+CPU offload. NVFP4A16 is weight-only, so no FP4 arithmetic is required or used:
+vLLM serves it through the Marlin NVFP4 kernel, which decodes the 4-bit weights
+and computes in bf16. Numerically clean — no pad collapse, no NaN.
 
 SWE-bench Verified is below the competitive bar (Devstral Small 2512, 56.4%
 under the same scaffold) — see Honest positioning. Over half the empty-patch
@@ -263,5 +265,6 @@ docs/                environment setup guide, SOTA/optimization research notes
 
 ## License
 
-Apache 2.0, matching `reap` and `llm-compressor` so the router renormalization
-fix can be offered upstream without a licence mismatch.
+Apache 2.0, inherited from the base model `Kwaipilot/KAT-Coder-V2.5-Dev` and
+matching `reap` and `llm-compressor`, so the router renormalization fix can be
+offered upstream without a licence mismatch.

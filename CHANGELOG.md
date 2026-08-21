@@ -9,6 +9,16 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Added
 
+- **`scripts/probes/verify_repo.py` and a `verify` CI workflow.** Checks the
+  invariants whose violations were actually found here: unresolvable relative
+  links, duplicate headings inside a changelog release, Python that does not
+  compile, and documentation that points at upstream `reap` instead of the fork.
+  Needs no GPU, checkpoint, or pipeline environment, so it runs on every push.
+- **`scripts/probes/capture_environment.sh`**, which prints the exact version of
+  every component the pipeline depends on, including the `reap` commit and
+  whether that checkout is dirty.
+- **`CITATION.cff`**.
+
 - **Release checkpoint published:** [`Ttimms/KAT-Coder-V2.5-Dev-REAP-50-NVFP4A16`](https://huggingface.co/Ttimms/KAT-Coder-V2.5-Dev-REAP-50-NVFP4A16)
   — 12.45 GiB, REAP 50% expert pruning plus NVFP4A16, vision tower removed.
 - **`scripts/release/`**, which builds the shippable checkpoint from the quantized
@@ -46,6 +56,31 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
   change the SWE-bench score above.
 
 ### Fixed
+
+- **`docs/environment.md` documented an unreproducible build.** It instructed
+  cloning upstream `CerebrasResearch/reap`, but the release was built from
+  `t-timms/reap-cuda` at `2954ba3`, which carries the router-renormalization fix.
+  Upstream silently disables renormalization for this architecture, so anyone
+  following the setup would have built a materially different model without any
+  error — the pruned checkpoint is named `reap-renorm_true-...` precisely because
+  that flag is part of its identity. The fork, branch and commit are now pinned.
+- **The environment table described a stack that no longer exists.** It listed
+  `transformers 4.57.1` and vLLM 0.20.2 for the serving environment; the machine
+  now runs 5.15.1 and 0.26.0. Benchmark-era and current versions are now recorded
+  separately, because the 149.5 tok/s and CUDA-graph results are specific to the
+  0.20.2 build while the accuracy figures are not.
+- **The smoke test contradicted the README.** Its docstring called CUDA graph
+  capture "numerically broken on SM120" while the README's headline benchmark runs
+  on CUDA graphs and reports a 7.4x speedup from them. The docstring was stale; it
+  now states the real reason the smoke test runs eager.
+- **"NVFP4 compute is numerically correct on this architecture" overstated what
+  runs.** NVFP4A16 is weight-only, and vLLM selects the Marlin NVFP4 kernel on this
+  card — it decodes 4-bit weights and computes in bf16. No FP4 arithmetic is
+  required or performed. Reworded to say what actually executes.
+- **License rationale cited the wrong source.** Apache 2.0 is inherited from the
+  base model; the toolchain licences merely happen to agree.
+- **`read_scores.py` printed a Wilson interval for standard-error rows,** which is
+  meaningless for a value that is not a proportion.
 
 - **The build emitted 0.83 GiB of untrained vision weights into the checkpoint.**
   `KAT-Coder-V2.5-Dev` declares a vision tower and ships no weights for it, so

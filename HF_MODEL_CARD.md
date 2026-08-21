@@ -3,6 +3,9 @@ base_model:
   - Kwaipilot/KAT-Coder-V2.5-Dev
 base_model_relation: quantized
 license: apache-2.0
+library_name: transformers
+datasets:
+  - theblackcat102/evol-codealpaca-v1
 tags:
   - reap
   - pruning
@@ -175,8 +178,8 @@ breakdown and required caveats.
 
 ## License
 
-Apache 2.0, matching the `reap` and `llm-compressor` toolchains used to build
-this checkpoint.
+Apache 2.0, inherited from the base model `Kwaipilot/KAT-Coder-V2.5-Dev` and
+matching the `reap` and `llm-compressor` toolchains used to build this checkpoint.
 
 ## Citation
 

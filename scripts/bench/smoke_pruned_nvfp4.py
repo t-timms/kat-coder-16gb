@@ -9,7 +9,9 @@ If this produces coherent code, the product path is proven end to end:
   REAP 50% prune -> NVFP4A16 -> vLLM on a consumer Blackwell card, in 16 GB.
 
 Non-negotiables:
-  * enforce_eager=True - CUDA graph capture is numerically broken on SM120.
+  * enforce_eager=True - this test isolates checkpoint correctness from graph
+    capture. CUDA graphs DO work on this card and are what the 149.5 tok/s
+    benchmark uses (see README); they are just not what this test is proving.
   * language_model_only=True - the architecture declares itself multimodal. Without
     this, vLLM profiles a 16384-token image budget through a vision tower with ZERO
     trained weights and grinds for 16+ min. Required for the quantized checkpoint,

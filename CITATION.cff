@@ -1,0 +1,32 @@
+cff-version: 1.2.0
+title: KAT-Coder-V2.5-Dev-REAP-50-NVFP4A16
+abstract: >-
+  A REAP expert-pruned (50%) and NVFP4A16-quantized build of
+  Kwaipilot/KAT-Coder-V2.5-Dev, 12.45 GiB, served by vLLM inside 16 GB of
+  consumer VRAM on an RTX 5070 Ti (SM120). Includes a router-renormalization
+  fix for the qwen3_5_moe REAP adapter, and published SWE-bench Verified,
+  HumanEval+ and MBPP+ figures with confidence intervals.
+type: software
+message: >-
+  If you use this checkpoint, please also cite the upstream KAT-Coder-V2.5
+  technical report (arXiv:2607.05471), from which it is derived.
+authors:
+  - name: t-timms
+repository-code: https://github.com/t-timms/KAT-Coder-V2.5-Dev-REAP-50-NVFP4A16
+url: https://huggingface.co/Ttimms/KAT-Coder-V2.5-Dev-REAP-50-NVFP4A16
+license: Apache-2.0
+keywords:
+  - expert-pruning
+  - reap
+  - nvfp4
+  - quantization
+  - mixture-of-experts
+  - vllm
+  - agentic-coding
+references:
+  - type: article
+    title: KAT-Coder-V2.5 Technical Report
+    authors:
+      - name: KwaiKAT Team
+    year: 2026
+    url: https://arxiv.org/pdf/2607.05471
