@@ -75,17 +75,24 @@ detectable loss on its primary code benchmark.
 | garbage/invalid patch (patch failed to apply) | 1 of 33 generated |
 | ran, tests failed (genuinely unresolved) | 6 |
 
-Prior measurement at this checkpoint's original 32K-token ceiling: 20/50 =
-40.0% (18 ContextWindowExceeded, 20/22 = 90.9% resolved-of-completed). Raising
-the ceiling to 49K (`max_model_len 49152`, `max_num_seqs 2`) moved the
+Prior measurement at this checkpoint's original 32K-token ceiling, `step_limit
+40`: 20/50 = 40.0% (18 ContextWindowExceeded, 9 LimitsExceeded — ran out of
+agent turns before finishing, a different failure mode than the context
+ceiling — 20/22 = 90.9% resolved-of-completed). Raising both the context
+ceiling to 49K and the step limit to 65 (`kat_overrides_sota.yaml`) moved the
 headline number from 40.0% to 52.0%, but **not** primarily by reducing
-context-window failures — the failure rate barely moved (17/50 = 34% vs.
-18/50 = 36%). The gain came from instances that fit within the ceiling either
-way resolving far more often with more room to work in: 81.25%
-resolved-of-completed at 49K vs. 62.5% at 32K. The scaffold's context ceiling
-is still the safe limit this card's VRAM budget supports, not a property of
-the model — Devstral Small averages 86.9 LM calls/instance under the same
-scaffold, and instances needing more than 49K tokens of context still fail to
+context-window failures — that rate barely moved (17/50 = 34% vs. 18/50 =
+36%). The real lever was the step limit: `LimitsExceeded` failures went from
+9 to 0, so 10 more instances (22→32) reached a real completion attempt
+instead of running out of turns first. Those newly-reachable instances
+resolve at a lower rate than the ones that were already completing (81.25%
+resolved-of-completed at 49K vs. 90.9% at 32K — consistent with them being
+the harder, longer problems that need the extra turns), but enough resolved
+anyway that the net resolved count still rose (20→26). The scaffold's context
+ceiling is still the safe limit this card's VRAM budget supports, not a
+property of the model — Devstral Small averages 86.9 LM calls/instance under
+the same scaffold, and instances needing more than 49K tokens of context or
+more than 65 agent turns still fail to
 submit at all. This is disclosed as a real result, not an excuse: 52.0% is the
 correct number to cite; the breakdown above is the correct context for
 interpreting it.

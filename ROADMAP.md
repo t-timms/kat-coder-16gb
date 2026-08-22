@@ -55,17 +55,32 @@ resolved, 6 unresolved — 26/50 = 52.0%**, up from the prior 20/50 = 40.0% at
 `results/hosted_vllm__kat-16gb.kat_pilot_024304_49k.json`,
 `results/preds_49k.json`.
 
-**The mechanism was not the one this section originally hypothesized.**
-Raising the ceiling did not meaningfully reduce the `ContextWindowExceeded`
-rate — 17/50 = 34% now vs. 18/50 = 36% before, functionally flat, and this
-was checked mid-run (partial samples at 16%, then 26%) before settling back
-up to 34% by the end, which is why the partial-sample checks during the run
-were reported with explicit "don't trust this yet" caveats rather than as a
-trend. The actual gain: instances that fit within the ceiling *either way*
-resolved far more often with more room to work in — resolved-of-completed
-went from 62.5% (20/32) at 32K to 81.25% (26/32) at 49K. More context helped
-completion quality on attempts the model could already fit, more than it
-helped the model avoid running out of room in the first place.
+**The mechanism was not the one this section originally hypothesized — and
+not the one first written up here either.** First pass at this writeup
+compared 26/32 against 20/32, using "not-CWE" (50-18) as a stand-in for
+"completed." Wrong: the old run's actual `completed_instances` (from its own
+committed report, `results/hosted_vllm__kat-16gb.kat-coder-16gb-50.json`) is
+**22, not 32** — there's a third failure category, `LimitsExceeded` (ran out
+of agent turns, 9 instances), distinct from `ContextWindowExceeded`, that the
+first pass missed. Caught by re-deriving both runs' numbers directly from
+their raw JSON reports rather than trusting the prior write-up, on request to
+audit everything.
+
+Corrected: raising the ceiling did not meaningfully reduce the
+`ContextWindowExceeded` rate — 17/50 = 34% now vs. 18/50 = 36% before,
+functionally flat (this was checked mid-run too, at 16% then 26%, correctly
+flagged as unstable rather than reported as a trend). The real lever was
+`kat_overrides_sota.yaml` also raising `step_limit` 40→65 alongside the
+context ceiling: `LimitsExceeded` failures went from 9 to 0, so 10 more
+instances (22→32) reached a real completion attempt instead of running out
+of agent turns first. Those newly-reachable instances resolve at a *lower*
+rate than the ones that were already completing — resolved-of-completed went
+from 90.9% (20/22) at 32K/step_limit-40 to 81.25% (26/32) at
+49K/step_limit-65, consistent with them being the harder, longer problems
+that need the extra turns — but enough of them resolved anyway that the net
+resolved count still rose (20→26). More agent turns, not more context per
+se, is what let the model reach and solve problems it previously couldn't
+even attempt to finish.
 
 Still below the 56.4% competitive bar (Devstral Small 2512), but closed most
 of the gap (40.0% → 52.0% vs. a 16.4-point gap to close). `run_pilot_all.sh`'s

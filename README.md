@@ -24,14 +24,21 @@ and computes in bf16. Numerically clean — no pad collapse, no NaN.
 
 SWE-bench Verified is still below the competitive bar (Devstral Small 2512,
 56.4% under the same scaffold — see Honest positioning) but closed most of
-the gap: raising the context ceiling from 32K to 49K tokens
-(`max_model_len 49152`, `max_num_seqs 2`, trading concurrency for headroom)
-moved the score from 40.0% to 52.0%. The context-window failure rate itself
-barely moved (34% vs. the prior 36%) — the gain came from a different
-mechanism than expected: instances that fit within the ceiling either way
-resolved far more often with more room to work in (81.25% of completed
-instances resolved at 49K, vs. 62.5% at 32K), not from hitting the ceiling
-less often. This is now the default agentic config — see Status below.
+the gap: raising both the context ceiling (32K→49K tokens, `max_model_len
+49152`, `max_num_seqs 2`) and the agent step limit (40→65, paired changes in
+`kat_overrides_sota.yaml`) moved the score from 40.0% to 52.0%. The
+context-window failure rate barely moved (34% vs. the prior 36%) — the real
+lever was the step limit: the old config's 9 `LimitsExceeded` failures
+(instances that ran out of agent turns before finishing, a *different*
+failure mode than hitting the context ceiling) are gone entirely at the
+raised limit, so 10 more instances (22→32) reached a real completion
+attempt instead of running out of steps first. Those newly-reachable
+instances — the ones that previously failed purely from the step ceiling —
+resolve at a lower rate than instances that were already completing
+(81.25% resolved-of-completed at 49K vs. 90.9% at 32K, consistent with them
+being the harder, longer problems), but enough resolved anyway that the net
+count still rose (20→26). This is now the default agentic config — see
+Status below.
 
 ## Status
 

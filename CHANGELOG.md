@@ -9,19 +9,40 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Added
 
-- **SWE-bench Verified raised from 40.0% to 52.0% (26/50) by widening the
-  context ceiling from 32K to 49K tokens.** Ran the full 50-instance pilot at
-  `max_model_len 49152, max_num_seqs 2` (`kat_overrides_sota.yaml`, validated
-  single-instance beforehand, now the default in `run_pilot_all.sh`), graded
-  with the official `swebench.harness.run_evaluation`: 0 infrastructure
-  failures, 0 crashes. The mechanism was not the one hypothesized —
-  context-window failures barely moved (17/50 = 34% vs. the prior 18/50 =
-  36%) — the gain came from instances that fit within the ceiling either way
-  resolving far more often with more room to reason and iterate:
-  resolved-of-completed went from 62.5% (20/32) at 32K to 81.25% (26/32) at
-  49K. Prior 32K/40.0% config preserved and documented as the reproducible
-  baseline (`MAXLEN=32768 MAXSEQS=8 KAT_CONFIG=kat_overrides.yaml`). Updated
-  README.md, HF_MODEL_CARD.md, and `run_pilot_all.sh`'s defaults accordingly.
+- **SWE-bench Verified raised from 40.0% to 52.0% (26/50) by raising both the
+  context ceiling (32K→49K) and the agent step limit (40→65).** Ran the full
+  50-instance pilot at `max_model_len 49152, max_num_seqs 2, step_limit 65`
+  (`kat_overrides_sota.yaml`, context validated single-instance beforehand,
+  now the default in `run_pilot_all.sh`), graded with the official
+  `swebench.harness.run_evaluation`: 0 infrastructure failures, 0 crashes.
+  The mechanism (corrected after an initial write-up used the wrong
+  denominator — see below): context-window failures barely moved (17/50 =
+  34% vs. the prior 18/50 = 36%). The real lever was the step limit —
+  `LimitsExceeded` failures (running out of agent turns, a separate failure
+  mode from the context ceiling) dropped from 9 to 0, letting 10 more
+  instances (22→32 `completed_instances`) reach a real attempt. Those newly
+  reachable instances resolve at a lower rate than ones already completing
+  (resolved-of-completed: 90.9%, 20/22, at 32K/step-40 → 81.25%, 26/32, at
+  49K/step-65 — consistent with them being the harder problems needing the
+  extra turns), but enough resolved anyway that the net count still rose
+  (20→26). Prior 32K/40.0% config preserved and documented as the
+  reproducible baseline (`MAXLEN=32768 MAXSEQS=8 KAT_CONFIG=kat_overrides.yaml`).
+  Updated README.md, HF_MODEL_CARD.md, and `run_pilot_all.sh`'s defaults
+  accordingly.
+
+- **Self-correction, same day:** the first write-up of the SWE-bench result
+  above compared 26 resolved against 32 *non-CWE* instances for both runs,
+  treating that as "completed." Wrong for the old run: its actual
+  `completed_instances` (from its own committed report) is 22, not 32 — a
+  third failure category, `LimitsExceeded`, was missed. This inflated the
+  apparent old resolved-of-completed rate's *direction of change* (originally
+  reported as improving, 62.5%→81.25%; actually declining, 90.9%→81.25%) and
+  attributed the win to the wrong mechanism (completion quality, rather than
+  the step-limit fix reaching previously-unreachable instances). Caught by
+  re-deriving both runs' numbers from their raw JSON reports on request to
+  audit the night's work, rather than trusting the prior write-up. Corrected
+  in README.md, HF_MODEL_CARD.md (including the already-published live HF
+  model card), ROADMAP.md, and this entry.
 
 - **W4A4 re-quantization built, measured, and published as an alternative
   build.** 4096-token calibration, vision-tower stripped, smoke-tested
