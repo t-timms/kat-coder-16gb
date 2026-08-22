@@ -1,0 +1,130 @@
+# CANDIDATE, NOT the default — select explicitly with
+# KAT_CONFIG=kat_overrides_sota_presence_penalty.yaml. Everything here is
+# identical to kat_overrides_sota.yaml (the exact config that produced the
+# published 52.0% SWE-bench result) except the two sampling parameters added
+# below. This is a separate file, not an edit to kat_overrides_sota.yaml
+# itself, specifically so the default stays reproducible: cloning this repo
+# and running the documented quickstart with no KAT_CONFIG set always
+# reproduces the cited, fully-validated number. A promising single-instance
+# result does not get to silently become the new default — that was tried
+# once (2026-08-22, reverted the same day) and is the wrong process even
+# when the change itself is well-reasoned.
+#
+# WHAT THIS ADDS AND WHY
+#
+# The base model card (Kwaipilot/KAT-Coder-V2.5-Dev, "Thinking mode" example)
+# documents temperature=1.0, top_p=0.95, presence_penalty=1.5, top_k=20
+# together. kat_overrides_sota.yaml only carries the first two -
+# presence_penalty and top_k were missing, an oversight, not a deliberate
+# choice.
+#
+# Found while diagnosing a real failure: a diverse-repo SWE-bench sample
+# turned up an instance (astropy__astropy-14096) where the agent got stuck
+# re-deriving the same conclusion and re-issuing an IDENTICAL verification
+# command 6 times in a row before running out of context - the model was
+# even self-aware of it ("I've been going in circles") but looped anyway.
+# presence_penalty exists specifically to suppress this.
+#
+# Tested on that exact instance, 3 repeated draws (not 1 - this config
+# samples at temperature=1.0, so a single draw cannot separate a real effect
+# from ordinary sampling noise): 0/3 draws hit ContextWindowExceededError
+# (was 1/1 before). Checked directly, not assumed: one draw's 65 turns used
+# 64 DISTINCT commands, versus the prior run's literal 6x-identical-command
+# loop. Real, measurable suppression of that specific failure mode.
+#
+# NOT a full fix, and NOT YET VALIDATED PAST ONE INSTANCE - say so plainly.
+# All 3 draws still took 59-65 turns against a clean 26-turn baseline on the
+# same instance, and one draw still failed a different way (ran out of the
+# step budget rather than context). A follow-on prompt-engineering attempt
+# to fix that residual gap (t-timms/kat-coder-16gb-serving-experiments,
+# agentic-quality/) was tried twice and made things WORSE on the same
+# instance (submission rate 1/3 vs. this config's 2/3, and a new
+# ContextWindowExceededError failure mode in 2/3 draws) - deprioritized, not
+# adopted. Full writeup, raw trajectories:
+# t-timms/kat-coder-16gb-serving-experiments, sampling-params/NOTES.md.
+#
+# Worth testing at full-pilot scale anyway: it's a small, low-risk
+# correction toward the model's own documented config, not a novel
+# intervention, and it removed a real failure mode without introducing a new
+# one in the one sample tested. A full-pilot run (not just this one
+# instance) is the next step before this can be promoted to the default -
+# see ROADMAP.md.
+
+agent:
+  # 40 -> 65, derived rather than picked. Usable history went from roughly
+  # 32,768 - 7,000 = 25,768 tokens to 49,152 - 7,000 = 42,152, a factor of 1.63.
+  # If 40 steps exhausted the old budget, ~65 exhausts the new one. Stock
+  # mini-swe-agent allows 250 and devstral-small averages 86.9 LM calls per
+  # instance, so 65 moves toward the reference scaffold rather than away from it.
+  step_limit: 65
+
+model:
+  model_name: "hosted_vllm/kat-16gb"
+  # MUST sit here, a sibling of model_name - not under agent:. litellm reads it
+  # from the model config; misplaced, it raises "Error calculating cost for model"
+  # on every instance. Caught by a 1-instance validation run, 2026-08-21.
+  cost_tracking: "ignore_errors"
+  model_kwargs:
+    api_base: "http://localhost:8000/v1"
+    api_key: "EMPTY"
+    temperature: 1.0
+    top_p: 0.95
+    # Completes the model card's documented sampling recommendation - see
+    # the header comment above for what this fixes and what it doesn't.
+    presence_penalty: 1.5
+    extra_body:
+      top_k: 20
+    # Unchanged from the tested baseline. See note above before lowering.
+    max_tokens: 3072
+    drop_params: true
+
+  observation_template: |
+    {% if output.exception_info -%}
+    <exception>{{output.exception_info}}</exception>
+    {% endif -%}
+    <returncode>{{output.returncode}}</returncode>
+    {% if output.output | length < 5000 -%}
+    <output>
+    {{ output.output -}}
+    </output>
+    {%- else -%}
+    <warning>
+    The output of your last command was too long.
+    Please try a different command that produces less output.
+    If you're looking at a file you can try use head, tail or sed to view a smaller number of lines selectively.
+    If you're using grep or find and it produced too much output, you can use a more selective search pattern.
+    If you really need to see something from the full command's output, you can redirect output to a file and then search in that file.
+    </warning>
+    {%- set elided_chars = output.output | length - 5000 -%}
+    <output_head>
+    {{ output.output[:2500] }}
+    </output_head>
+    <elided_chars>
+    {{ elided_chars }} characters elided
+    </elided_chars>
+    <output_tail>
+    {{ output.output[-2500:] }}
+    </output_tail>
+    {%- endif %}
+
+  format_error_template: |
+    {% if finish_reason is defined and (finish_reason == "length" or (finish_reason == "tool_calls" and not has_tool_calls)) -%}
+    Your previous response reached the output token limit (finish_reason={{ finish_reason }}) before you produced a tool call, so it was cut off. Respond more concisely and finish with exactly one bash tool call. If you need to think more, do so briefly.
+    {%- else -%}
+    Tool call error:
+
+    <error>
+    {{error}}
+    </error>
+
+    Here is general guidance on how to submit correct toolcalls:
+
+    Every response needs to use the 'bash' tool at least once to execute commands.
+
+    Call the bash tool with your command as the argument:
+    - Tool: bash
+    - Arguments: {"command": "your_command_here"}
+
+    If you have completed your assignment, please consult the first message about how to
+    submit your solution (you will not be able to continue working on this task after that).
+    {%- endif %}

@@ -97,14 +97,16 @@ submit at all. This is disclosed as a real result, not an excuse: 52.0% is the
 correct number to cite; the breakdown above is the correct context for
 interpreting it.
 
-**Config note (2026-08-22):** the 52.0% figure above was measured on
-`kat_overrides_sota.yaml` as it stood on 2026-08-22. That file has since had
-two missing sampling parameters added (`presence_penalty`, `top_k`),
-completing this base model's own documented sampling recommendation (see
-"Usage" below). Tested on one instance with repeated draws — it measurably
-suppressed a genuine repetition-loop failure — but a **full-pilot
-re-validation with this change has not been run yet**, so no updated
-SWE-bench score exists to cite for the current default config.
+**Config note (2026-08-22):** `kat_overrides_sota.yaml` — the config behind
+the 52.0% figure above — is kept byte-identical to the run that produced it;
+a fresh clone reproduces this exact result by default. A candidate change
+(`presence_penalty`/`top_k`, completing this base model's own documented
+sampling recommendation — see "Usage" below) is available as a separate,
+explicitly-selected opt-in config, not the default: tested on one instance
+with repeated draws, it measurably suppressed a genuine repetition-loop
+failure, but has **not been full-pilot re-validated**, so no updated
+SWE-bench score exists to cite for it yet. It is only promoted into the
+default config if and when it clears that same bar.
 
 ## Prior art and scope of claims
 
@@ -164,13 +166,14 @@ a 13,130-token history). Never set `--max-model-len` near a measured ceiling:
 available KV cache swings 0.49–1.41 GiB with host desktop VRAM use, and higher
 values fail intermittently rather than at startup.
 
-**Recommended sampling** (client-side generation parameters, separate from
-the server flags above): `Kwaipilot/KAT-Coder-V2.5-Dev`'s own model card
-documents `temperature=1.0, top_p=0.95, presence_penalty=1.5, top_k=20`
-together for Thinking mode. `presence_penalty`/`top_k` measurably suppressed
-a genuine repetition-loop failure in agentic testing on this checkpoint (see
-the SWE-bench config note above) — pass all four together rather than only
-`temperature`/`top_p`.
+**Sampling**: `temperature=1.0, top_p=0.95` is what the published SWE-bench
+result used and is the current recommendation. `Kwaipilot/KAT-Coder-V2.5-Dev`'s
+own model card documents two more params alongside these,
+`presence_penalty=1.5, top_k=20`, for Thinking mode — early agentic testing
+on this checkpoint found they measurably suppress a genuine repetition-loop
+failure (see the SWE-bench config note above), but that finding is one
+instance, not full-pilot validated, so it's a candidate worth trying rather
+than a settled recommendation yet.
 
 ## Evaluation
 

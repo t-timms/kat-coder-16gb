@@ -36,43 +36,22 @@
 # Its 5,000-char observation truncation IS adopted: tool output compresses without
 # costing reasoning quality, unlike the model's own output budget.
 #
-# ADDED 2026-08-22: presence_penalty and top_k, completing the model's own
-# documented sampling recommendation
+# THIS FILE IS THE EXACT CONFIG THAT PRODUCED THE PUBLISHED 52.0% RESULT.
+# It stays that way deliberately - do not add anything here without a
+# full-pilot re-validation to back it, however well-reasoned the change.
 #
-# The base model card (Kwaipilot/KAT-Coder-V2.5-Dev, "Thinking mode" example)
-# documents temperature=1.0, top_p=0.95, presence_penalty=1.5, top_k=20 together.
-# This file only carried the first two - presence_penalty and top_k were missing,
-# an oversight, not a deliberate choice (the file's own prior comment already
-# argued for following the model's documented sampling rather than a habitual
-# default; that argument was never extended to these two params).
-#
-# Found while diagnosing a real failure: a diverse-repo SWE-bench sample turned
-# up an instance (astropy__astropy-14096) where the agent got stuck re-deriving
-# the same conclusion and re-issuing an IDENTICAL verification command 6 times in
-# a row before running out of context - the model was even self-aware of it
-# ("I've been going in circles") but looped anyway. presence_penalty exists
-# specifically to suppress this.
-#
-# Tested on that exact instance, 3 repeated draws (not 1 - this config samples at
-# temperature=1.0, so a single draw cannot separate a real effect from ordinary
-# sampling noise): 0/3 draws hit ContextWindowExceededError (was 1/1 before).
-# Checked directly, not assumed: one draw's 65 turns used 64 DISTINCT commands,
-# versus the prior run's literal 6x-identical-command loop. Real, measurable
-# suppression of that specific failure mode.
-#
-# NOT a full fix, and not yet validated past one instance - say so plainly. All 3
-# draws still took 59-65 turns against a clean 26-turn baseline on the same
-# instance, and one draw still failed a different way (ran out of the step
-# budget rather than context). The model stopped repeating itself verbatim but
-# kept trying different variations of the same investigative idea without
-# committing to write and test a fix - presence_penalty punishes repeated
-# tokens, it has no mechanism for "hasn't decided to stop exploring yet." Full
-# writeup, raw trajectories: t-timms/kat-coder-16gb-serving-experiments,
-# sampling-params/NOTES.md. Worth adopting anyway: it's a small, low-risk
-# correction toward the model's own documented config, not a novel intervention,
-# and it removed a real failure mode without introducing a new one in this
-# sample. A full-pilot re-validation (not just this one instance) is the next
-# step before citing any score change from this specific fix.
+# A presence_penalty/top_k addition (completes the base model's own
+# documented sampling recommendation) was tried directly in this file on
+# 2026-08-22, based on a promising single-instance test, then reverted the
+# same day: it had silently become the new default without ever being
+# validated at the same scale as the 52.0% result it was shipping alongside,
+# which broke reproducibility of the cited number from a fresh clone. That
+# candidate now lives in its own file, kat_overrides_sota_presence_penalty.yaml
+# - same content as this file plus the two added params, selected explicitly
+# via KAT_CONFIG, never the silent default. See that file's header for the
+# full finding. This is the correct process going forward for any future
+# candidate change too: new file, opt-in, promoted to this one only after
+# matching evidence.
 
 agent:
   # 40 -> 65, derived rather than picked. Usable history went from roughly
@@ -93,12 +72,6 @@ model:
     api_key: "EMPTY"
     temperature: 1.0
     top_p: 0.95
-    # Completes the model card's documented sampling recommendation - see the
-    # 2026-08-22 note above for what this fixes and what it doesn't.
-    presence_penalty: 1.5
-    extra_body:
-      top_k: 20
-    # Unchanged from the tested baseline. See note above before lowering.
     max_tokens: 3072
     drop_params: true
 

@@ -7,6 +7,19 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+### Fixed
+
+- **Reverted a premature default-config change; split `presence_penalty`/`top_k`
+  into its own opt-in candidate file.** They had been added directly into
+  `kat_overrides_sota.yaml` — the same file that produced the cited 52.0%
+  SWE-bench result — based on a single-instance test, which meant a fresh
+  clone no longer reproduced that number by default. `kat_overrides_sota.yaml`
+  is now reverted to byte-identical with the config that actually produced
+  52.0%; the candidate lives in `kat_overrides_sota_presence_penalty.yaml`,
+  selected explicitly, never silently the default. `sync_configs.sh` was also
+  missing this new file from its hardcoded sync list — fixed. `HF_MODEL_CARD.md`
+  re-synced to match. Full explanation: `ROADMAP.md`'s dated correction entry.
+
 ### Added
 
 - **Scoped a GPTQ-based NVFP4A16 requantization (`scripts/quantize/quantize_kat_gptq.py`),

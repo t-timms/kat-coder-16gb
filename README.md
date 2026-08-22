@@ -64,7 +64,7 @@ Status below.
 | Rollout throughput (`max_num_seqs` 2→8) | done, tested — 1.86x concurrency, no score impact |
 | Context ceiling raised 32K→49K (`max_model_len`, `max_num_seqs` 8→2) | done, validated on the full 50-instance pilot — see Results above |
 | Context-*budget* experiment (opt-in, reduces `max_tokens` instead of raising the ceiling) | scaffolded, still unvalidated, a different lever than the one above — see `kat_overrides_context_managed.yaml` |
-| `presence_penalty`/`top_k` added, completing the model's documented sampling recommendation | done, config only — tested single-instance with repeated draws (suppressed a real repetition-loop failure), **full-pilot re-validation not yet run** — see `kat_overrides_sota.yaml`'s header comment |
+| `presence_penalty`/`top_k`, completing the model's documented sampling recommendation | candidate — its own file (`kat_overrides_sota_presence_penalty.yaml`), **not the default**, tested single-instance with repeated draws (suppressed a real repetition-loop failure, but submission rate below the shipped default's 2/3 rate on that same instance across two follow-on prompt-engineering attempts — see `t-timms/kat-coder-16gb-serving-experiments`). Full-pilot re-validation is the bar for promotion to default |
 | Release checkpoint on Hugging Face | published — [`Ttimms/KAT-Coder-V2.5-Dev-REAP-50-NVFP4A16`](https://huggingface.co/Ttimms/KAT-Coder-V2.5-Dev-REAP-50-NVFP4A16) |
 | W4A4 (native FP4 kernels) alternative build | published, see below |
 | GPTQ-based NVFP4A16 requantization (same size, different rounding algorithm) | scoped and scripted (`scripts/quantize/quantize_kat_gptq.py`), **not yet run** — see `ROADMAP.md`'s dated entry for the verification behind this and what would make it worth shipping |
@@ -151,19 +151,24 @@ The serve + rollout + teardown are combined in one script because starting the
 server from a separate invocation reports READY and then dies when that invocation
 exits. See `scripts/swebench/README.md` for the full agentic pipeline docs.
 
-Defaults are `MAXLEN=49152 MAXSEQS=2 KAT_CONFIG=kat_overrides_sota.yaml`. The
-52.0% figure above was measured on this config as it stood on 2026-08-22;
-`kat_overrides_sota.yaml` has since had two missing sampling parameters added
-(`presence_penalty`, `top_k`, completing the base model's own documented
-recommendation — see the file's own header comment for what this does and
-doesn't fix), tested on one instance with repeated draws but **not yet
-re-validated on a full 50-instance pilot**. Treat 52.0% as the last
-full-pilot-validated number, not a live reflection of the current default
-config, until that re-validation runs. To reproduce the original 32K/40.0%
-baseline instead, run `MAXLEN=32768 MAXSEQS=8 KAT_CONFIG=kat_overrides.yaml bash
-scripts/swebench/run_pilot_all.sh 50`. A third, still-unvalidated config
-(reduces `max_tokens` instead of raising the context ceiling) is available via
-`KAT_CONFIG=kat_overrides_context_managed.yaml`.
+Defaults are `MAXLEN=49152 MAXSEQS=2 KAT_CONFIG=kat_overrides_sota.yaml`, and
+`kat_overrides_sota.yaml` is kept byte-identical to the config that produced
+the 52.0% figure above — a fresh clone with no `KAT_CONFIG` override
+reproduces that exact result. To reproduce the original 32K/40.0% baseline
+instead, run `MAXLEN=32768 MAXSEQS=8 KAT_CONFIG=kat_overrides.yaml bash
+scripts/swebench/run_pilot_all.sh 50`. Two other configs are available,
+neither the default and neither full-pilot validated —
+`KAT_CONFIG=kat_overrides_context_managed.yaml` (reduces `max_tokens` instead
+of raising the context ceiling) and
+`KAT_CONFIG=kat_overrides_sota_presence_penalty.yaml` (completes the base
+model's own documented sampling recommendation — `presence_penalty`, `top_k`
+— measurably fixed a repetition-loop failure on one tested instance; see
+that file's header before citing any result from it). A change is only
+promoted into `kat_overrides_sota.yaml` itself once it clears the same
+full-pilot bar 52.0% did — that happened once already
+(`presence_penalty`/`top_k` briefly lived in this file on single-instance
+evidence, reverted the same day) and won't happen again without the scale of
+evidence to back it.
 
 **7. Run HumanEval / MBPP+ (non-agentic accuracy)**
 

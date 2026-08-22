@@ -24,11 +24,16 @@ ENVBIN=~/swebench-env/bin
 CFGDIR=~/kat_swebench
 # Default is now the SOTA config, validated 2026-08-22 on a full 50-instance
 # run: 26/50 = 52.0%, up from 40.0% at the old default (0 infrastructure
-# failures, 0 crashes). Set KAT_CONFIG=kat_overrides.yaml + MAXLEN=32768
+# failures, 0 crashes). This default reproduces that exact result from a
+# fresh clone - kat_overrides_sota.yaml is kept unchanged from the run that
+# produced it, deliberately. Set KAT_CONFIG=kat_overrides.yaml + MAXLEN=32768
 # MAXSEQS=8 to reproduce the original 32K/40.0% baseline instead. Set
 # KAT_CONFIG=kat_overrides_context_managed.yaml to try the still-unvalidated
 # context-*budget* experiment (reduces max_tokens instead of raising the
 # ceiling - a different, untested lever - see that file for what it changes).
+# Set KAT_CONFIG=kat_overrides_sota_presence_penalty.yaml to try a candidate
+# sampling-parameter fix, tested on one instance only, NOT full-pilot
+# validated - see that file's header before citing any result from it.
 KAT_CONFIG="${KAT_CONFIG:-kat_overrides_sota.yaml}"
 # Serving limits. Defaults reproduce the 52.0% result (2026-08-22 full-pilot
 # run) exactly: 1.22-1.41 GiB KV depending on Windows-side VRAM contention,

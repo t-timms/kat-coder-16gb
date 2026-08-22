@@ -108,6 +108,35 @@ repetition-loop failure on one instance. **Full-pilot re-validation with
 that sampling fix is the next concrete step** before any new score can be
 cited.
 
+## CORRECTION (2026-08-22): reverted a premature default change, split into a candidate file
+
+`presence_penalty`/`top_k` (see the entry below) were added directly into
+`kat_overrides_sota.yaml` on 2026-08-22 — the same file that produced the
+cited 52.0% result. That was a process mistake, caught via user question,
+not internal review: it meant a fresh clone running the documented
+quickstart with no `KAT_CONFIG` override no longer reproduced the number on
+the model card, based on nothing more than a single-instance test.
+
+Reverted `kat_overrides_sota.yaml` to byte-for-byte what it was when it
+produced 52.0% (no `presence_penalty`/`top_k`). The addition now lives in
+its own file, `kat_overrides_sota_presence_penalty.yaml` — same content plus
+the two params, selected explicitly via `KAT_CONFIG=kat_overrides_sota_presence_penalty.yaml`,
+never silently the default. `scripts/swebench/sync_configs.sh` updated to
+sync it (it was missing from that script's hardcoded file list — would have
+made the candidate file invisible to actual runs even after being selected).
+
+**Standing rule going forward**: a change only gets merged into
+`kat_overrides_sota.yaml` itself once it clears a full-pilot re-validation at
+the same scale as the result already shipping in that file. Single-instance
+or small-sample evidence — however promising, however well-reasoned — earns
+a new, clearly-labeled, opt-in file, not an edit to the proven default. This
+is the same discipline already applied to `kat_overrides_context_managed.yaml`;
+it just wasn't applied consistently to this specific change when it was made.
+
+Also corrected: `HF_MODEL_CARD.md`'s presence_penalty note (added the same
+day this mistake was made) described the default as having changed when it
+no longer has — re-synced to the live HF card to match this correction.
+
 ## PLAN (2026-08-22): GPTQ-based NVFP4A16 requantization — scoped, not yet run
 
 The shipped checkpoint (`quantize_kat.py`) uses `QuantizationModifier` — plain

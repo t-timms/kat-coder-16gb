@@ -4,7 +4,7 @@ set -uo pipefail
 REPO="$HOME/kat-coder-16gb/scripts/swebench"
 CFGDIR="$HOME/kat_swebench"
 mkdir -p "$CFGDIR"
-for f in kat_overrides.yaml kat_overrides_context_managed.yaml kat_overrides_sota.yaml registry.json; do
+for f in kat_overrides.yaml kat_overrides_context_managed.yaml kat_overrides_sota.yaml kat_overrides_sota_presence_penalty.yaml registry.json; do
   if [ -f "$REPO/$f" ]; then
     cp "$REPO/$f" "$CFGDIR/$f"
     echo "  synced $f ($(stat -c%s "$CFGDIR/$f") bytes)"
