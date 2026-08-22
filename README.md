@@ -60,7 +60,7 @@ Status below.
 | CUDA graphs (7.4x over eager) | done |
 | Agentic serving config (prefix caching, 45x) | done |
 | HumanEval+ / MBPP+ accuracy | done (89.0% / 90.5%) |
-| SWE-bench Verified via mini-swe-agent | done — 26/50 = 52.0% at 49K context (`kat_overrides_sota.yaml`, now the default); 40.0% at the original 32K ceiling, kept below as the prior baseline. The 60% sparsity comparison runs in [a separate repository](https://github.com/t-timms/kat-coder-16gb-60pct-experiment) |
+| SWE-bench Verified via mini-swe-agent | done — 26/50 = 52.0% at 49K context (`kat_overrides_sota.yaml`, now the default); 40.0% at the original 32K ceiling, kept below as the prior baseline |
 | Rollout throughput (`max_num_seqs` 2→8) | done, tested — 1.86x concurrency, no score impact |
 | Context ceiling raised 32K→49K (`max_model_len`, `max_num_seqs` 8→2) | done, validated on the full 50-instance pilot — see Results above |
 | Context-*budget* experiment (opt-in, reduces `max_tokens` instead of raising the ceiling) | scaffolded, still unvalidated, a different lever than the one above — see `kat_overrides_context_managed.yaml` |
