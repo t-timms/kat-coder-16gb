@@ -90,16 +90,23 @@ fully-validated option; the 32K/40.0% config is preserved and documented as
 the reproducible fallback baseline, not deleted. README.md and
 HF_MODEL_CARD.md updated to cite 52.0% as the headline number.
 
-**Next, if pursued further:** the context-*budget* config
-(`kat_overrides_context_managed.yaml`, reduces `max_tokens` instead of
-raising the ceiling) is a different, still-untested lever — worth trying
-since this run showed the ceiling-raise's benefit came from completion
-quality, not fewer context failures, which is a different mechanism than
-what a tighter output budget would target. The 17 remaining
-`ContextWindowExceeded` instances are also a candidate list for testing
-whether the chat-template experiment (see
-`t-timms/kat-coder-16gb-serving-experiments`, -12% content on the one
-instance tested there) reduces token usage enough to rescue any of them.
+**Next, if pursued further:** per the correction above, the real lever was
+the step-limit raise eliminating `LimitsExceeded` (9→0), not a
+context-failure or completion-quality effect — so the context-*budget*
+config (`kat_overrides_context_managed.yaml`, reduces `max_tokens` instead
+of raising the ceiling) targets a different mechanism than what actually
+drove this result, and shouldn't be assumed to help without its own test.
+The 17 remaining `ContextWindowExceeded` instances are a candidate list for
+two things now under separate investigation in
+`t-timms/kat-coder-16gb-serving-experiments`: (1) the chat-template
+experiment (mixed/inconclusive on a diverse sample — see that repo's
+`chat-template/NOTES.md`, do not adopt yet) and (2) a real config gap found
+2026-08-22 — `presence_penalty`/`top_k` were missing from this file relative
+to the base model's own documented sampling recommendation, now added (see
+this file's own header comment) after measurably suppressing a genuine
+repetition-loop failure on one instance. **Full-pilot re-validation with
+that sampling fix is the next concrete step** before any new score can be
+cited.
 
 ## Next major project: W4A4 re-quantization
 

@@ -9,6 +9,26 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Added
 
+- **Added `presence_penalty` and `top_k` to `kat_overrides_sota.yaml`,
+  completing the base model's own documented sampling recommendation.**
+  `Kwaipilot/KAT-Coder-V2.5-Dev`'s model card documents `temperature=1.0,
+  top_p=0.95, presence_penalty=1.5, top_k=20` together for Thinking mode;
+  this config only carried the first two. Found while diagnosing a
+  SWE-bench agent stuck in a genuine repetition loop (re-issuing an
+  identical command 6 times, self-aware of it — "I've been going in
+  circles" — and looping anyway). Tested on that exact instance with 3
+  repeated draws (not 1 — this config samples at `temperature: 1.0`, so a
+  single draw can't separate signal from sampling noise): 0/3 draws hit
+  `ContextWindowExceededError` afterward, versus 1/1 before; checked
+  directly, one draw's 65 turns used 64 distinct commands, versus the
+  earlier literal 6x-repeat. Real, measured suppression of that specific
+  failure — not a full fix (all 3 draws still took far more turns than a
+  clean baseline run, and one still failed a different way). **Full-pilot
+  re-validation of the SWE-bench score with this change has not been run
+  yet** — the published 52.0% figure below predates this change. Full
+  writeup and raw trajectories:
+  `t-timms/kat-coder-16gb-serving-experiments`, `sampling-params/NOTES.md`.
+
 - **SWE-bench Verified raised from 40.0% to 52.0% (26/50) by raising both the
   context ceiling (32K→49K) and the agent step limit (40→65).** Ran the full
   50-instance pilot at `max_model_len 49152, max_num_seqs 2, step_limit 65`

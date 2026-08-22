@@ -56,6 +56,7 @@ Status below.
 | Rollout throughput (`max_num_seqs` 2→8) | done, tested — 1.86x concurrency, no score impact |
 | Context ceiling raised 32K→49K (`max_model_len`, `max_num_seqs` 8→2) | done, validated on the full 50-instance pilot — see Results above |
 | Context-*budget* experiment (opt-in, reduces `max_tokens` instead of raising the ceiling) | scaffolded, still unvalidated, a different lever than the one above — see `kat_overrides_context_managed.yaml` |
+| `presence_penalty`/`top_k` added, completing the model's documented sampling recommendation | done, config only — tested single-instance with repeated draws (suppressed a real repetition-loop failure), **full-pilot re-validation not yet run** — see `kat_overrides_sota.yaml`'s header comment |
 | Release checkpoint on Hugging Face | published — [`Ttimms/KAT-Coder-V2.5-Dev-REAP-50-NVFP4A16`](https://huggingface.co/Ttimms/KAT-Coder-V2.5-Dev-REAP-50-NVFP4A16) |
 | W4A4 (native FP4 kernels) alternative build | published, see below |
 
@@ -133,7 +134,7 @@ bash scripts/bench/bench_ab.sh 5
 
 ```bash
 # Prerequisite: Docker Engine in WSL, mini-swe-agent + swebench installed
-bash scripts/swebench/run_pilot_all.sh 50    # ~2-3 hours for 50 instances, defaults to the 49K/52.0% config
+bash scripts/swebench/run_pilot_all.sh 50    # ~2-3 hours for 50 instances
 bash scripts/swebench/grade_pilot.sh         # official SWE-bench harness
 ```
 
@@ -141,8 +142,15 @@ The serve + rollout + teardown are combined in one script because starting the
 server from a separate invocation reports READY and then dies when that invocation
 exits. See `scripts/swebench/README.md` for the full agentic pipeline docs.
 
-Defaults are `MAXLEN=49152 MAXSEQS=2 KAT_CONFIG=kat_overrides_sota.yaml` — the
-config that produced the 52.0% result above. To reproduce the original 32K/40.0%
+Defaults are `MAXLEN=49152 MAXSEQS=2 KAT_CONFIG=kat_overrides_sota.yaml`. The
+52.0% figure above was measured on this config as it stood on 2026-08-22;
+`kat_overrides_sota.yaml` has since had two missing sampling parameters added
+(`presence_penalty`, `top_k`, completing the base model's own documented
+recommendation — see the file's own header comment for what this does and
+doesn't fix), tested on one instance with repeated draws but **not yet
+re-validated on a full 50-instance pilot**. Treat 52.0% as the last
+full-pilot-validated number, not a live reflection of the current default
+config, until that re-validation runs. To reproduce the original 32K/40.0%
 baseline instead, run `MAXLEN=32768 MAXSEQS=8 KAT_CONFIG=kat_overrides.yaml bash
 scripts/swebench/run_pilot_all.sh 50`. A third, still-unvalidated config
 (reduces `max_tokens` instead of raising the context ceiling) is available via
