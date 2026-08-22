@@ -108,6 +108,51 @@ repetition-loop failure on one instance. **Full-pilot re-validation with
 that sampling fix is the next concrete step** before any new score can be
 cited.
 
+## PLAN (2026-08-22): GPTQ-based NVFP4A16 requantization — scoped, not yet run
+
+The shipped checkpoint (`quantize_kat.py`) uses `QuantizationModifier` — plain
+round-to-nearest (RTN): each weight rounded to its nearest representable
+NVFP4 value independently. `GPTQModifier` instead corrects each layer for the
+error its own rounding decisions introduce, using a Hessian-based
+least-squares pass. Before scoping this, checked directly rather than
+assumed:
+
+- GPTQ+NVFP4 has shipped in llm-compressor since v0.10.0 (confirmed via Red
+  Hat's 2026-03-18 release notes), and current literature confirms GPTQ
+  "consistently outperforms RTN" for NVFP4 recovery specifically.
+- A newer method, MR-GPTQ (arXiv 2509.23202, 98-99% FP16 recovery claimed),
+  is **not** usable here — its llm-compressor integration is an open,
+  unimplemented RFC (`vllm-project/llm-compressor#2006`) as of 2026-08-22.
+  Using it would mean a separate, unintegrated toolchain (FP-Quant/QuTLASS).
+  Noted as a future watch item, not attempted.
+- The pruned bf16 source checkpoint this needs (`reap-renorm_true-seed_42-0.50`,
+  36 GiB) is still on disk — no need to re-run REAP pruning.
+- The existing ignore list (router/gate protection) was re-verified directly
+  against this exact checkpoint's module names before reuse, not assumed
+  correct by inheritance. (One self-caught false alarm along the way: an
+  initial check compared patterns against raw safetensors tensor names,
+  which carry a trailing `.weight` llm-compressor's module-name matching
+  does not use — corrected before concluding anything.)
+
+Same file size and scheme as the shipped build (weight-only NVFP4A16, same
+targets/ignore) — this is a same-size accuracy attempt, not a new tradeoff.
+`quantize_kat_gptq.py` deliberately keeps `MAX_SEQ=2048` and the same
+calibration set/seed as the shipped script, isolating the quantization
+algorithm as the only variable changed — raising `MAX_SEQ` to match the 49K
+serving context is a legitimate separate follow-up if this measures better,
+not bundled in here.
+
+**Status: script written and syntax/recipe-construction verified. Not yet
+run** — needs a GPU-free window (calibration requires GPU forward passes).
+Plan once it runs: accuracy suite (HumanEval+/MBPP+) against the current
+90.9%/89.9% baseline using confidence intervals, not point estimates: if
+GPTQ shows a real improvement, a 1-instance SWE-bench smoke test, then a
+small bounded sample (5-10 instances) before considering a full-pilot
+re-validation or shipping. If it's a wash, documented honestly and the
+shipped RTN checkpoint stays the default — this is queued as the cheapest
+next lever before a base-model swap (Ornith-1.5-35B-A3B), not a commitment
+to ship regardless of outcome.
+
 ## Next major project: W4A4 re-quantization
 
 The real remaining lever, not a same-session change. From

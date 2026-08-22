@@ -9,6 +9,21 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Added
 
+- **Scoped a GPTQ-based NVFP4A16 requantization (`scripts/quantize/quantize_kat_gptq.py`),
+  not yet run.** The shipped checkpoint uses plain round-to-nearest (RTN)
+  quantization; GPTQ corrects each layer for the error its own rounding
+  introduces, via a Hessian-based least-squares pass. Verified before
+  scoping, not assumed: GPTQ+NVFP4 has shipped in llm-compressor since
+  v0.10.0, and 2026 literature confirms GPTQ "consistently outperforms RTN"
+  for NVFP4 recovery. A newer method (MR-GPTQ, arXiv 2509.23202) claims
+  better recovery still but is not usable — its llm-compressor integration
+  is an open, unimplemented RFC as of 2026-08-22, tracked as a future watch
+  item instead. Same file size and scheme as the shipped build; the
+  calibration set, seed, and `MAX_SEQ` are deliberately unchanged from
+  `quantize_kat.py` so this isolates the quantization algorithm as the only
+  variable. Full plan, verification detail, and go/no-go criteria in
+  `ROADMAP.md`'s dated entry.
+
 - **Added `presence_penalty` and `top_k` to `kat_overrides_sota.yaml`,
   completing the base model's own documented sampling recommendation.**
   `Kwaipilot/KAT-Coder-V2.5-Dev`'s model card documents `temperature=1.0,

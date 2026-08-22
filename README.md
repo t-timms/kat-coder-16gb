@@ -64,6 +64,7 @@ Status below.
 | `presence_penalty`/`top_k` added, completing the model's documented sampling recommendation | done, config only — tested single-instance with repeated draws (suppressed a real repetition-loop failure), **full-pilot re-validation not yet run** — see `kat_overrides_sota.yaml`'s header comment |
 | Release checkpoint on Hugging Face | published — [`Ttimms/KAT-Coder-V2.5-Dev-REAP-50-NVFP4A16`](https://huggingface.co/Ttimms/KAT-Coder-V2.5-Dev-REAP-50-NVFP4A16) |
 | W4A4 (native FP4 kernels) alternative build | published, see below |
+| GPTQ-based NVFP4A16 requantization (same size, different rounding algorithm) | scoped and scripted (`scripts/quantize/quantize_kat_gptq.py`), **not yet run** — see `ROADMAP.md`'s dated entry for the verification behind this and what would make it worth shipping |
 
 ## W4A4: an alternative quantization strategy
 
@@ -325,7 +326,7 @@ bash-only scaffold (SWE-bench/experiments, v1.17.2, 86.9 LM calls/instance).
 
 ```
 scripts/prune/       REAP pruning, calibration stability, the renormalization fix
-scripts/quantize/    NVFP4A16 and NVFP4 W4A4 builds via llm-compressor
+scripts/quantize/    NVFP4A16 (RTN and GPTQ variants) and NVFP4 W4A4 builds via llm-compressor
 scripts/release/     assemble and verify the shippable checkpoint
 scripts/eval/        HumanEval+/MBPP+, paired evaluation, McNemar
 scripts/bench/       A/B latency via vllm bench, serving smoke tests
