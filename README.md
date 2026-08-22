@@ -1,9 +1,14 @@
-# KAT-Coder-V2.5-Dev-REAP-50-NVFP4A16
+# kat-coder-nvfp4
 
 Making `Kwaipilot/KAT-Coder-V2.5-Dev` (69.40 SWE-bench Verified) run as a usable
 local agentic coding model inside 16 GB of consumer VRAM, on an RTX 5070 Ti (SM120).
 
 Pipeline: REAP expert pruning at 50 percent, then NVFP4 quantization, served by vLLM.
+
+Two checkpoints are published: [`KAT-Coder-V2.5-Dev-REAP-50-NVFP4A16`](https://huggingface.co/Ttimms/KAT-Coder-V2.5-Dev-REAP-50-NVFP4A16)
+(weight-only, this release's default — see Results below) and
+[`KAT-Coder-V2.5-Dev-REAP-50-NVFP4-W4A4`](https://huggingface.co/Ttimms/KAT-Coder-V2.5-Dev-REAP-50-NVFP4-W4A4)
+(weights + activations, native FP4 kernels — see [W4A4](#w4a4-an-alternative-quantization-strategy) below).
 
 ## Results
 

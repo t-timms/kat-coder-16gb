@@ -1,9 +1,11 @@
 cff-version: 1.2.0
-title: KAT-Coder-V2.5-Dev-REAP-50-NVFP4A16
+title: kat-coder-nvfp4
 abstract: >-
-  A REAP expert-pruned (50%) and NVFP4A16-quantized build of
-  Kwaipilot/KAT-Coder-V2.5-Dev, 12.45 GiB, served by vLLM inside 16 GB of
-  consumer VRAM on an RTX 5070 Ti (SM120). Includes a router-renormalization
+  A REAP expert-pruned (50%) and NVFP4-quantized build of
+  Kwaipilot/KAT-Coder-V2.5-Dev, served by vLLM inside 16 GB of consumer VRAM
+  on an RTX 5070 Ti (SM120). Two checkpoints are published: NVFP4A16
+  (weight-only, 12.45 GiB, this release's default) and NVFP4 W4A4
+  (weights+activations, native FP4 kernels). Includes a router-renormalization
   fix for the qwen3_5_moe REAP adapter, and published SWE-bench Verified,
   HumanEval+ and MBPP+ figures with confidence intervals.
 type: software
