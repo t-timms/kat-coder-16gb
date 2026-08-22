@@ -1,0 +1,252 @@
+{
+  "django__django-14672": {
+    "model_name_or_path": "hosted_vllm/kat-16gb",
+    "instance_id": "django__django-14672",
+    "model_patch": "diff --git a/django/db/models/fields/reverse_related.py b/django/db/models/fields/reverse_related.py\nindex ccc2223a5f..65950590e2 100755\n--- a/django/db/models/fields/reverse_related.py\n+++ b/django/db/models/fields/reverse_related.py\n@@ -310,7 +310,7 @@ class ManyToManyRel(ForeignObjectRel):\n     def identity(self):\n         return super().identity + (\n             self.through,\n-            self.through_fields,\n+            make_hashable(self.through_fields),\n             self.db_constraint,\n         )\n \n"
+  },
+  "sphinx-doc__sphinx-10449": {
+    "model_name_or_path": "hosted_vllm/kat-16gb",
+    "instance_id": "sphinx-doc__sphinx-10449",
+    "model_patch": ""
+  },
+  "django__django-11299": {
+    "model_name_or_path": "hosted_vllm/kat-16gb",
+    "instance_id": "django__django-11299",
+    "model_patch": "diff --git a/django/db/models/sql/query.py b/django/db/models/sql/query.py\nindex b99f03cd88..649aa0fd5f 100644\n--- a/django/db/models/sql/query.py\n+++ b/django/db/models/sql/query.py\n@@ -1338,7 +1338,8 @@ class Query(BaseExpression):\n             if isinstance(child, Node):\n                 child_clause, needed_inner = self._add_q(\n                     child, used_aliases, branch_negated,\n-                    current_negated, allow_joins, split_subq)\n+                    current_negated, allow_joins, split_subq,\n+                    simple_col=simple_col)\n                 joinpromoter.add_votes(needed_inner)\n             else:\n                 child_clause, needed_inner = self.build_filter(\n"
+  },
+  "django__django-14493": {
+    "model_name_or_path": "hosted_vllm/kat-16gb",
+    "instance_id": "django__django-14493",
+    "model_patch": "diff --git a/django/contrib/staticfiles/storage.py b/django/contrib/staticfiles/storage.py\nindex f957a667b2..720767aa9e 100644\n--- a/django/contrib/staticfiles/storage.py\n+++ b/django/contrib/staticfiles/storage.py\n@@ -261,6 +261,7 @@ class HashedFilesMixin:\n \n         paths = {path: paths[path] for path in adjustable_paths}\n \n+        substitutions = False\n         for i in range(self.max_post_process_passes):\n             substitutions = False\n             for name, hashed_name, processed, subst in self._post_process(paths, adjustable_paths, hashed_files):\n"
+  },
+  "django__django-12143": {
+    "model_name_or_path": "hosted_vllm/kat-16gb",
+    "instance_id": "django__django-12143",
+    "model_patch": "diff --git a/django/contrib/admin/options.py b/django/contrib/admin/options.py\nindex 137e6faa0f..a100f1c499 100644\n--- a/django/contrib/admin/options.py\n+++ b/django/contrib/admin/options.py\n@@ -1631,7 +1631,7 @@ class ModelAdmin(BaseModelAdmin):\n \n     def _get_edited_object_pks(self, request, prefix):\n         \"\"\"Return POST data values of list_editable primary keys.\"\"\"\n-        pk_pattern = re.compile(r'{}-\\d+-{}$'.format(prefix, self.model._meta.pk.name))\n+        pk_pattern = re.compile(r'{}-\\d+-{}$'.format(re.escape(prefix), self.model._meta.pk.name))\n         return [value for key, value in request.POST.items() if pk_pattern.match(key)]\n \n     def _get_list_editable_queryset(self, request, prefix):\n"
+  },
+  "django__django-11551": {
+    "model_name_or_path": "hosted_vllm/kat-16gb",
+    "instance_id": "django__django-11551",
+    "model_patch": "diff --git a/django/contrib/admin/checks.py b/django/contrib/admin/checks.py\nindex f82c20c2f1..9fd77b5d41 100644\n--- a/django/contrib/admin/checks.py\n+++ b/django/contrib/admin/checks.py\n@@ -720,33 +720,33 @@ class ModelAdminChecks(BaseModelAdminChecks):\n             return []\n         elif hasattr(obj, item):\n             return []\n-        elif hasattr(obj.model, item):\n+        else:\n             try:\n                 field = obj.model._meta.get_field(item)\n             except FieldDoesNotExist:\n-                return []\n-            else:\n-                if isinstance(field, models.ManyToManyField):\n+                try:\n+                    field = getattr(obj.model, item)\n+                except AttributeError:\n                     return [\n                         checks.Error(\n-                            \"The value of '%s' must not be a ManyToManyField.\" % label,\n+                            \"The value of '%s' refers to '%s', which is not a callable, \"\n+                            \"an attribute of '%s', or an attribute or method on '%s.%s'.\" % (\n+                                label, item, obj.__class__.__name__,\n+                                obj.model._meta.app_label, obj.model._meta.object_name,\n+                            ),\n                             obj=obj.__class__,\n-                            id='admin.E109',\n+                            id='admin.E108',\n                         )\n                     ]\n-                return []\n-        else:\n-            return [\n-                checks.Error(\n-                    \"The value of '%s' refers to '%s', which is not a callable, \"\n-                    \"an attribute of '%s', or an attribute or method on '%s.%s'.\" % (\n-                        label, item, obj.__class__.__name__,\n-                        obj.model._meta.app_label, obj.model._meta.object_name,\n-                    ),\n-                    obj=obj.__class__,\n-                    id='admin.E108',\n-                )\n-            ]\n+            if isinstance(field, models.ManyToManyField):\n+                return [\n+                    checks.Error(\n+                        \"The value of '%s' must not be a ManyToManyField.\" % label,\n+                        obj=obj.__class__,\n+                        id='admin.E109',\n+                    )\n+                ]\n+            return []\n \n     def _check_list_display_links(self, obj):\n         \"\"\" Check that list_display_links is a unique subset of list_display.\n"
+  },
+  "pydata__xarray-6938": {
+    "model_name_or_path": "hosted_vllm/kat-16gb",
+    "instance_id": "pydata__xarray-6938",
+    "model_patch": "diff --git a/xarray/core/variable.py b/xarray/core/variable.py\nindex 5827b90a..d03654e9 100644\n--- a/xarray/core/variable.py\n+++ b/xarray/core/variable.py\n@@ -2881,7 +2881,7 @@ class IndexVariable(Variable):\n \n     def to_index_variable(self):\n         \"\"\"Return this variable as an xarray.IndexVariable\"\"\"\n-        return self\n+        return self.copy(deep=False)\n \n     to_coord = utils.alias(to_index_variable, \"to_coord\")\n \n"
+  },
+  "django__django-12193": {
+    "model_name_or_path": "hosted_vllm/kat-16gb",
+    "instance_id": "django__django-12193",
+    "model_patch": "diff --git a/django/contrib/postgres/forms/array.py b/django/contrib/postgres/forms/array.py\nindex 2e19cd574a..41ee932992 100644\n--- a/django/contrib/postgres/forms/array.py\n+++ b/django/contrib/postgres/forms/array.py\n@@ -146,8 +146,9 @@ class SplitArrayWidget(forms.Widget):\n                 widget_value = None\n             if id_:\n                 final_attrs = {**final_attrs, 'id': '%s_%s' % (id_, i)}\n+            widget_attrs = final_attrs.copy()\n             context['widget']['subwidgets'].append(\n-                self.widget.get_context(name + '_%s' % i, widget_value, final_attrs)['widget']\n+                self.widget.get_context(name + '_%s' % i, widget_value, widget_attrs)['widget']\n             )\n         return context\n \n"
+  },
+  "django__django-15916": {
+    "model_name_or_path": "hosted_vllm/kat-16gb",
+    "instance_id": "django__django-15916",
+    "model_patch": "diff --git a/django/forms/models.py b/django/forms/models.py\nindex 192d9fad94..e7277f0f49 100644\n--- a/django/forms/models.py\n+++ b/django/forms/models.py\n@@ -41,6 +41,9 @@ __all__ = (\n \n ALL_FIELDS = \"__all__\"\n \n+# Sentinel to distinguish \"no argument passed\" from \"argument is None\"\n+_FORMFIELD_CALLBACK_UNSET = object()\n+\n \n def construct_instance(form, instance, fields=None, exclude=None):\n     \"\"\"\n@@ -137,7 +140,7 @@ def fields_for_model(\n     fields=None,\n     exclude=None,\n     widgets=None,\n-    formfield_callback=None,\n+    formfield_callback=_FORMFIELD_CALLBACK_UNSET,\n     localized_fields=None,\n     labels=None,\n     help_texts=None,\n@@ -220,7 +223,7 @@ def fields_for_model(\n         if field_classes and f.name in field_classes:\n             kwargs[\"form_class\"] = field_classes[f.name]\n \n-        if formfield_callback is None:\n+        if formfield_callback is None or formfield_callback is _FORMFIELD_CALLBACK_UNSET:\n             formfield = f.formfield(**kwargs)\n         elif not callable(formfield_callback):\n             raise TypeError(\"formfield_callback must be a function or callable\")\n@@ -565,7 +568,7 @@ def modelform_factory(\n     form=ModelForm,\n     fields=None,\n     exclude=None,\n-    formfield_callback=None,\n+    formfield_callback=_FORMFIELD_CALLBACK_UNSET,\n     widgets=None,\n     localized_fields=None,\n     labels=None,\n@@ -630,13 +633,17 @@ def modelform_factory(\n     # creating needs to inherit from the parent's inner meta.\n     bases = (form.Meta,) if hasattr(form, \"Meta\") else ()\n     Meta = type(\"Meta\", bases, attrs)\n-    if formfield_callback:\n+    if formfield_callback is not _FORMFIELD_CALLBACK_UNSET:\n         Meta.formfield_callback = staticmethod(formfield_callback)\n     # Give this new form class a reasonable name.\n     class_name = model.__name__ + \"Form\"\n \n     # Class attributes for the new form class.\n-    form_class_attrs = {\"Meta\": Meta, \"formfield_callback\": formfield_callback}\n+    form_class_attrs = {\"Meta\": Meta}\n+    if formfield_callback is not _FORMFIELD_CALLBACK_UNSET:\n+        form_class_attrs[\"formfield_callback\"] = formfield_callback\n+    elif hasattr(form, \"Meta\") and hasattr(form.Meta, \"formfield_callback\"):\n+        form_class_attrs[\"formfield_callback\"] = form.Meta.formfield_callback\n \n     if getattr(Meta, \"fields\", None) is None and getattr(Meta, \"exclude\", None) is None:\n         raise ImproperlyConfigured(\n@@ -1006,7 +1013,7 @@ class BaseModelFormSet(BaseFormSet):\n def modelformset_factory(\n     model,\n     form=ModelForm,\n-    formfield_callback=None,\n+    formfield_callback=_FORMFIELD_CALLBACK_UNSET,\n     formset=BaseModelFormSet,\n     extra=1,\n     can_delete=False,\n@@ -1276,7 +1283,7 @@ def inlineformset_factory(\n     can_order=False,\n     can_delete=True,\n     max_num=None,\n-    formfield_callback=None,\n+    formfield_callback=_FORMFIELD_CALLBACK_UNSET,\n     widgets=None,\n     validate_max=False,\n     localized_fields=None,\n"
+  },
+  "pytest-dev__pytest-5262": {
+    "model_name_or_path": "hosted_vllm/kat-16gb",
+    "instance_id": "pytest-dev__pytest-5262",
+    "model_patch": "diff --git a/src/_pytest/capture.py b/src/_pytest/capture.py\nindex 25eab7fd..b2191b38 100644\n--- a/src/_pytest/capture.py\n+++ b/src/_pytest/capture.py\n@@ -442,6 +442,12 @@ class EncodedFile(object):\n         data = \"\".join(linelist)\n         self.write(data)\n \n+    @property\n+    def mode(self):\n+        \"\"\"Text-mode mode string without the \"b\" character.\"\"\"\n+        mode = getattr(object.__getattribute__(self, \"buffer\"), \"mode\", \"\")\n+        return mode.replace(\"b\", \"\")\n+\n     @property\n     def name(self):\n         \"\"\"Ensure that file.name is a string.\"\"\"\n"
+  },
+  "sphinx-doc__sphinx-8459": {
+    "model_name_or_path": "hosted_vllm/kat-16gb",
+    "instance_id": "sphinx-doc__sphinx-8459",
+    "model_patch": "diff --git a/sphinx/ext/autodoc/typehints.py b/sphinx/ext/autodoc/typehints.py\nindex 70cbc3ba1..e6451b52c 100644\n--- a/sphinx/ext/autodoc/typehints.py\n+++ b/sphinx/ext/autodoc/typehints.py\n@@ -27,7 +27,7 @@ def record_typehints(app: Sphinx, objtype: str, name: str, obj: Any,\n         if callable(obj):\n             annotations = app.env.temp_data.setdefault('annotations', {})\n             annotation = annotations.setdefault(name, OrderedDict())\n-            sig = inspect.signature(obj)\n+            sig = inspect.signature(obj, type_aliases=app.config.autodoc_type_aliases)\n             for param in sig.parameters.values():\n                 if param.annotation is not param.empty:\n                     annotation[param.name] = typing.stringify(param.annotation)\n"
+  },
+  "sphinx-doc__sphinx-9281": {
+    "model_name_or_path": "hosted_vllm/kat-16gb",
+    "instance_id": "sphinx-doc__sphinx-9281",
+    "model_patch": "diff --git a/sphinx/util/inspect.py b/sphinx/util/inspect.py\nindex a415a7074..a3e627b8a 100644\n--- a/sphinx/util/inspect.py\n+++ b/sphinx/util/inspect.py\n@@ -432,6 +432,8 @@ def safe_getattr(obj: Any, name: str, *defargs: Any) -> Any:\n \n def object_description(object: Any) -> str:\n     \"\"\"A repr() implementation that returns text safe to use in reST context.\"\"\"\n+    if isenumattribute(object):\n+        return '%s.%s' % (object.__class__.__name__, object.name)\n     if isinstance(object, dict):\n         try:\n             sorted_keys = sorted(object)\n"
+  },
+  "django__django-16082": {
+    "model_name_or_path": "hosted_vllm/kat-16gb",
+    "instance_id": "django__django-16082",
+    "model_patch": "diff --git a/django/db/models/expressions.py b/django/db/models/expressions.py\nindex 5e3c7cab82..cbf4fd8296 100644\n--- a/django/db/models/expressions.py\n+++ b/django/db/models/expressions.py\n@@ -533,6 +533,7 @@ _connector_combinations = [\n             Combinable.SUB,\n             Combinable.MUL,\n             Combinable.DIV,\n+            Combinable.MOD,\n         )\n     },\n     # Bitwise operators.\n"
+  },
+  "django__django-13012": {
+    "model_name_or_path": "hosted_vllm/kat-16gb",
+    "instance_id": "django__django-13012",
+    "model_patch": "diff --git a/django/db/models/expressions.py b/django/db/models/expressions.py\nindex c1a76584f0..14d6a1e525 100644\n--- a/django/db/models/expressions.py\n+++ b/django/db/models/expressions.py\n@@ -866,6 +866,9 @@ class ExpressionWrapper(Expression):\n     def as_sql(self, compiler, connection):\n         return self.expression.as_sql(compiler, connection)\n \n+    def get_group_by_cols(self, alias=None):\n+        return self.expression.get_group_by_cols(alias=alias)\n+\n     def __repr__(self):\n         return \"{}({})\".format(self.__class__.__name__, self.expression)\n \n"
+  },
+  "django__django-11749": {
+    "model_name_or_path": "hosted_vllm/kat-16gb",
+    "instance_id": "django__django-11749",
+    "model_patch": "                yield opt\n\n    parser_actions = list(get_actions(parser))\n    # Any required arguments which are passed in via **options must be passed\n    # to parse_args(). This includes arguments that are part of a required\n    # mutually exclusive group.\n    required_group_dests = {\n        action.dest for group in parser._mutually_exclusive_groups\n        if group.required for action in group._group_actions\n    }\n    parse_args += [\n        '{}={}'.format(min(opt.option_strings), arg_options[opt.dest])\n        for opt in parser_actions\n        if (opt.required or opt.dest in required_group_dests) and opt.dest in options\n    ]\n    defaults = parser.parse_args(args=parse_args)\n    defaults = dict(defaults._get_kwargs(), **arg_options)\n    # Raise an error if any unknown options were passed.\n    stealth_options = set(command.base_stealth_options + command.stealth_options)\n    dest_parameters = {action.dest for action in parser_actions}\n    valid_options = (dest_parameters | stealth_options).union(opt_mapping)\n"
+  },
+  "sympy__sympy-20916": {
+    "model_name_or_path": "hosted_vllm/kat-16gb",
+    "instance_id": "sympy__sympy-20916",
+    "model_patch": ""
+  },
+  "scikit-learn__scikit-learn-14629": {
+    "model_name_or_path": "hosted_vllm/kat-16gb",
+    "instance_id": "scikit-learn__scikit-learn-14629",
+    "model_patch": "diff --git a/sklearn/multioutput.py b/sklearn/multioutput.py\nindex 463b72d40..14a76d389 100644\n--- a/sklearn/multioutput.py\n+++ b/sklearn/multioutput.py\n@@ -325,6 +325,28 @@ class MultiOutputClassifier(MultiOutputEstimator, ClassifierMixin):\n     def __init__(self, estimator, n_jobs=None):\n         super().__init__(estimator, n_jobs)\n \n+    def fit(self, X, y, sample_weight=None):\n+        \"\"\"Fit the model to data.\n+\n+        Parameters\n+        ----------\n+        X : array-like, shape (n_samples, n_features)\n+            Data.\n+\n+        y : array-like, shape (n_samples, n_outputs)\n+            Multi-output targets.\n+\n+        sample_weight : array-like, shape (n_samples,) or None\n+            The sample weight of each sample.\n+\n+        Returns\n+        -------\n+        self : object\n+        \"\"\"\n+        super().fit(X, y, sample_weight=sample_weight)\n+        self.classes_ = [estimator.classes_ for estimator in self.estimators_]\n+        return self\n+\n     def predict_proba(self, X):\n         \"\"\"Probability estimates.\n         Returns prediction probabilities for each class of each output.\n"
+  },
+  "django__django-14631": {
+    "model_name_or_path": "hosted_vllm/kat-16gb",
+    "instance_id": "django__django-14631",
+    "model_patch": "diff --git a/django/forms/boundfield.py b/django/forms/boundfield.py\nindex 88adadb37d..f56f700778 100644\n--- a/django/forms/boundfield.py\n+++ b/django/forms/boundfield.py\n@@ -1,6 +1,7 @@\n import datetime\n import re\n \n+from django.core.exceptions import ValidationError\n from django.forms.utils import flatatt, pretty_name\n from django.forms.widgets import Textarea, TextInput\n from django.utils.functional import cached_property\n@@ -120,6 +121,27 @@ class BoundField:\n         \"\"\"\n         return self.form._field_data_value(self.field, self.html_name)\n \n+    def _did_change(self):\n+        \"\"\"\n+        Return whether the data submitted for this field is different from\n+        the initial value.\n+        \"\"\"\n+        data_value = self.data\n+        if not self.field.show_hidden_initial:\n+            # Use the BoundField's initial as this is the value passed to\n+            # the widget.\n+            initial_value = self.initial\n+        else:\n+            hidden_widget = self.field.hidden_widget()\n+            try:\n+                initial_value = self.field.to_python(\n+                    self.form._widget_data_value(hidden_widget, self.html_initial_name)\n+                )\n+            except ValidationError:\n+                # Always assume data has changed if validation fails.\n+                return True\n+        return self.field.has_changed(initial_value, data_value)\n+\n     def value(self):\n         \"\"\"\n         Return the value for this BoundField, using the initial value if\ndiff --git a/django/forms/forms.py b/django/forms/forms.py\nindex d14037bfe9..49f899675f 100644\n--- a/django/forms/forms.py\n+++ b/django/forms/forms.py\n@@ -391,7 +391,7 @@ class BaseForm:\n             if field.disabled:\n                 value = self.get_initial_for_field(field, name)\n             else:\n-                value = self._field_data_value(field, self.add_prefix(name))\n+                value = self[name].data\n             try:\n                 if isinstance(field, FileField):\n                     initial = self.get_initial_for_field(field, name)\n@@ -438,23 +438,7 @@ class BaseForm:\n     def changed_data(self):\n         data = []\n         for name, field in self.fields.items():\n-            data_value = self._field_data_value(field, self.add_prefix(name))\n-            if not field.show_hidden_initial:\n-                # Use the BoundField's initial as this is the value passed to\n-                # the widget.\n-                initial_value = self[name].initial\n-            else:\n-                initial_prefixed_name = self.add_initial_prefix(name)\n-                hidden_widget = field.hidden_widget()\n-                try:\n-                    initial_value = field.to_python(\n-                        self._widget_data_value(hidden_widget, initial_prefixed_name)\n-                    )\n-                except ValidationError:\n-                    # Always assume data has changed if validation fails.\n-                    data.append(name)\n-                    continue\n-            if field.has_changed(initial_value, data_value):\n+            if self[name]._did_change():\n                 data.append(name)\n         return data\n \n"
+  },
+  "django__django-15930": {
+    "model_name_or_path": "hosted_vllm/kat-16gb",
+    "instance_id": "django__django-15930",
+    "model_patch": ""
+  },
+  "django__django-7530": {
+    "model_name_or_path": "hosted_vllm/kat-16gb",
+    "instance_id": "django__django-7530",
+    "model_patch": ""
+  },
+  "sympy__sympy-14248": {
+    "model_name_or_path": "hosted_vllm/kat-16gb",
+    "instance_id": "sympy__sympy-14248",
+    "model_patch": ""
+  },
+  "pallets__flask-5014": {
+    "model_name_or_path": "hosted_vllm/kat-16gb",
+    "instance_id": "pallets__flask-5014",
+    "model_patch": "diff --git a/src/flask/blueprints.py b/src/flask/blueprints.py\nindex eb50585d..8e26c893 100644\n--- a/src/flask/blueprints.py\n+++ b/src/flask/blueprints.py\n@@ -192,6 +192,8 @@ class Blueprint(Scaffold):\n \n         if \".\" in name:\n             raise ValueError(\"'name' may not contain a dot '.' character.\")\n+        if not name:\n+            raise ValueError(\"name must be a non-empty string.\")\n \n         self.name = name\n         self.url_prefix = url_prefix\n"
+  },
+  "pylint-dev__pylint-4551": {
+    "model_name_or_path": "hosted_vllm/kat-16gb",
+    "instance_id": "pylint-dev__pylint-4551",
+    "model_patch": ""
+  },
+  "sphinx-doc__sphinx-7440": {
+    "model_name_or_path": "hosted_vllm/kat-16gb",
+    "instance_id": "sphinx-doc__sphinx-7440",
+    "model_patch": "diff --git a/sphinx/domains/std.py b/sphinx/domains/std.py\nindex d820cfe5c..a88d7f45b 100644\n--- a/sphinx/domains/std.py\n+++ b/sphinx/domains/std.py\n@@ -305,7 +305,7 @@ def make_glossary_term(env: \"BuildEnvironment\", textnodes: Iterable[Node], index\n         term['ids'].append(node_id)\n \n     std = cast(StandardDomain, env.get_domain('std'))\n-    std.note_object('term', termtext.lower(), node_id, location=term)\n+    std.note_object('term', termtext, node_id, location=term)\n \n     # add an index entry too\n     indexnode = addnodes.index()\n@@ -565,7 +565,7 @@ class StandardDomain(Domain):\n         # links to tokens in grammar productions\n         'token':   TokenXRefRole(),\n         # links to terms in glossary\n-        'term':    XRefRole(lowercase=True, innernodeclass=nodes.inline,\n+        'term':    XRefRole(lowercase=False, innernodeclass=nodes.inline,\n                             warn_dangling=True),\n         # links to headings or arbitrary labels\n         'ref':     XRefRole(lowercase=True, innernodeclass=nodes.inline,\n@@ -952,8 +952,6 @@ class StandardDomain(Domain):\n         # all others\n         for objtype in self.object_types:\n             key = (objtype, target)\n-            if objtype == 'term':\n-                key = (objtype, ltarget)\n             if key in self.objects:\n                 docname, labelid = self.objects[key]\n                 results.append(('std:' + self.role_for_objtype(objtype),\n"
+  },
+  "astropy__astropy-14096": {
+    "model_name_or_path": "hosted_vllm/kat-16gb",
+    "instance_id": "astropy__astropy-14096",
+    "model_patch": "diff --git a/astropy/coordinates/sky_coordinate.py b/astropy/coordinates/sky_coordinate.py\nindex ab475f7d0..7921c99fb 100644\n--- a/astropy/coordinates/sky_coordinate.py\n+++ b/astropy/coordinates/sky_coordinate.py\n@@ -871,6 +871,18 @@ class SkyCoord(ShapedLikeNDArray):\n         Overrides getattr to return coordinates that this can be transformed\n         to, based on the alias attr in the primary transform graph.\n         \"\"\"\n+        # Check if the attribute is a descriptor on the class hierarchy.\n+        # If so, it means the descriptor's __get__ raised AttributeError and\n+        # Python is falling back to __getattr__. In this case, we should let\n+        # the original error propagate rather than raising a misleading\n+        # \"has no attribute\" error.\n+        for cls in type(self).__mro__:\n+            if attr in cls.__dict__:\n+                desc = cls.__dict__[attr]\n+                if isinstance(desc, (property, staticmethod, classmethod)):\n+                    return getattr(type(self), attr).__get__(self)\n+                break\n+\n         if \"_sky_coord_frame\" in self.__dict__:\n             if self._is_name(attr):\n                 return self  # Should this be a deepcopy of self?\n"
+  },
+  "sympy__sympy-17655": {
+    "model_name_or_path": "hosted_vllm/kat-16gb",
+    "instance_id": "sympy__sympy-17655",
+    "model_patch": "diff --git a/sympy/geometry/entity.py b/sympy/geometry/entity.py\nindex ee5c910268..e5793d0698 100755\n--- a/sympy/geometry/entity.py\n+++ b/sympy/geometry/entity.py\n@@ -68,6 +68,7 @@ class GeometryEntity(Basic):\n \n     \"\"\"\n \n+    _op_priority = 20.0\n     def __cmp__(self, other):\n         \"\"\"Comparison of two GeometryEntities.\"\"\"\n         n1 = self.__class__.__name__\ndiff --git a/sympy/geometry/point.py b/sympy/geometry/point.py\nindex 7c978c47be..6201f9f4c0 100755\n--- a/sympy/geometry/point.py\n+++ b/sympy/geometry/point.py\n@@ -278,6 +278,16 @@ def __mul__(self, factor):\n         coords = [simplify(x*factor) for x in self.args]\n         return Point(coords, evaluate=False)\n \n+    def __rmul__(self, factor):\n+        \"\"\"Reverse multiplication of a Point by a factor.\n+\n+        See Also\n+        ========\n+\n+        sympy.geometry.point.Point.__mul__\n+        \"\"\"\n+        return self.__mul__(factor)\n+\n     def __neg__(self):\n         \"\"\"Negate the point.\"\"\"\n         coords = [-x for x in self.args]\n"
+  },
+  "django__django-16485": {
+    "model_name_or_path": "hosted_vllm/kat-16gb",
+    "instance_id": "django__django-16485",
+    "model_patch": "diff --git a/django/template/defaultfilters.py b/django/template/defaultfilters.py\nindex 23c3a08c67..7ace6675d5 100644\n--- a/django/template/defaultfilters.py\n+++ b/django/template/defaultfilters.py\n@@ -183,7 +183,7 @@ def floatformat(text, arg=-1):\n     tupl = d.as_tuple()\n     units = len(tupl[1])\n     units += -tupl[2] if m else tupl[2]\n-    prec = abs(p) + units + 1\n+    prec = max(abs(p) + units + 1, 1)\n \n     # Avoid conversion to scientific notation by accessing `sign`, `digits`,\n     # and `exponent` from Decimal.as_tuple() directly.\n"
+  },
+  "django__django-17084": {
+    "model_name_or_path": "hosted_vllm/kat-16gb",
+    "instance_id": "django__django-17084",
+    "model_patch": ""
+  },
+  "django__django-16901": {
+    "model_name_or_path": "hosted_vllm/kat-16gb",
+    "instance_id": "django__django-16901",
+    "model_patch": ""
+  },
+  "django__django-15957": {
+    "model_name_or_path": "hosted_vllm/kat-16gb",
+    "instance_id": "django__django-15957",
+    "model_patch": ""
+  },
+  "django__django-13809": {
+    "model_name_or_path": "hosted_vllm/kat-16gb",
+    "instance_id": "django__django-13809",
+    "model_patch": "diff --git a/django/core/management/commands/runserver.py b/django/core/management/commands/runserver.py\nindex d9fb088350..2933146c9f 100644\n--- a/django/core/management/commands/runserver.py\n+++ b/django/core/management/commands/runserver.py\n@@ -51,6 +51,10 @@ class Command(BaseCommand):\n             '--noreload', action='store_false', dest='use_reloader',\n             help='Tells Django to NOT use the auto-reloader.',\n         )\n+        parser.add_argument(\n+            '--skip-checks', action='store_true',\n+            help='Skip system checks.',\n+        )\n \n     def execute(self, *args, **options):\n         if options['no_color']:\n@@ -114,11 +118,12 @@ class Command(BaseCommand):\n         shutdown_message = options.get('shutdown_message', '')\n         quit_command = 'CTRL-BREAK' if sys.platform == 'win32' else 'CONTROL-C'\n \n-        self.stdout.write(\"Performing system checks...\\n\\n\")\n-        self.check(display_num_errors=True)\n-        # Need to check migrations here, so can't use the\n-        # requires_migrations_check attribute.\n-        self.check_migrations()\n+        if not options.get('skip_checks', False):\n+            self.stdout.write(\"Performing system checks...\\n\\n\")\n+            self.check(display_num_errors=True)\n+            # Need to check migrations here, so can't use the\n+            # requires_migrations_check attribute.\n+            self.check_migrations()\n         now = datetime.now().strftime('%B %d, %Y - %X')\n         self.stdout.write(now)\n         self.stdout.write((\n"
+  },
+  "django__django-14608": {
+    "model_name_or_path": "hosted_vllm/kat-16gb",
+    "instance_id": "django__django-14608",
+    "model_patch": "diff --git a/django/forms/formsets.py b/django/forms/formsets.py\nindex a89c35599f..f2394cb313 100755\n--- a/django/forms/formsets.py\n+++ b/django/forms/formsets.py\n@@ -333,7 +333,7 @@ class BaseFormSet:\n         self._non_form_errors.\n         \"\"\"\n         self._errors = []\n-        self._non_form_errors = self.error_class()\n+        self._non_form_errors = self.error_class(error_class=\"nonform\")\n         empty_forms_count = 0\n \n         if not self.is_bound:  # Stop further processing.\n@@ -380,7 +380,7 @@ class BaseFormSet:\n             # Give self.clean() a chance to do cross-form validation.\n             self.clean()\n         except ValidationError as e:\n-            self._non_form_errors = self.error_class(e.error_list)\n+            self._non_form_errors = self.error_class(e.error_list, error_class=\"nonform\")\n \n     def clean(self):\n         \"\"\"\ndiff --git a/docs/topics/forms/formsets.txt b/docs/topics/forms/formsets.txt\nindex 1f2c7c3fad..f05f462674 100755\n--- a/docs/topics/forms/formsets.txt\n+++ b/docs/topics/forms/formsets.txt\n@@ -215,6 +215,16 @@ To check how many errors there are in the formset, we can use the\n     >>> formset.total_error_count()\n     1\n \n+Non-form errors (i.e., from formset.clean()) will be rendered with an\n+additional class of ``nonform`` to help distinguish them from form-specific\n+errors. For example, ``{{ formset.non_form_errors }}`` would look like:\n+\n+.. code-block:: html+django\n+\n+    <ul class=\"errorlist nonform\">\n+        <li>Generic validation error</li>\n+    </ul>\n+\n We can also check if form data differs from the initial data (i.e. the form was\n sent without any data)::\n \n"
+  },
+  "django__django-11239": {
+    "model_name_or_path": "hosted_vllm/kat-16gb",
+    "instance_id": "django__django-11239",
+    "model_patch": "diff --git a/django/db/backends/postgresql/client.py b/django/db/backends/postgresql/client.py\nindex cf4df76882..78df343e59 100644\n--- a/django/db/backends/postgresql/client.py\n+++ b/django/db/backends/postgresql/client.py\n@@ -17,6 +17,10 @@ class DatabaseClient(BaseDatabaseClient):\n         dbname = conn_params.get('database', '')\n         user = conn_params.get('user', '')\n         passwd = conn_params.get('password', '')\n+        sslmode = conn_params.get('sslmode', '')\n+        sslrootcert = conn_params.get('sslrootcert', '')\n+        sslcert = conn_params.get('sslcert', '')\n+        sslkey = conn_params.get('sslkey', '')\n \n         if user:\n             args += ['-U', user]\n@@ -24,6 +28,14 @@ class DatabaseClient(BaseDatabaseClient):\n             args += ['-h', host]\n         if port:\n             args += ['-p', str(port)]\n+        if sslmode:\n+            args += ['--sslmode=' + sslmode]\n+        if sslrootcert:\n+            args += ['--sslrootcert=' + sslrootcert]\n+        if sslcert:\n+            args += ['--sslcert=' + sslcert]\n+        if sslkey:\n+            args += ['--sslkey=' + sslkey]\n         args += [dbname]\n \n         sigint_handler = signal.getsignal(signal.SIGINT)\n"
+  },
+  "django__django-16263": {
+    "model_name_or_path": "hosted_vllm/kat-16gb",
+    "instance_id": "django__django-16263",
+    "model_patch": ""
+  },
+  "astropy__astropy-8872": {
+    "model_name_or_path": "hosted_vllm/kat-16gb",
+    "instance_id": "astropy__astropy-8872",
+    "model_patch": "diff --git a/astropy/units/quantity.py b/astropy/units/quantity.py\nindex ded609cbe..1b2940677 100644\n--- a/astropy/units/quantity.py\n+++ b/astropy/units/quantity.py\n@@ -297,6 +297,7 @@ class Quantity(np.ndarray, metaclass=InheritDocstrings):\n                     return value\n \n                 if not (np.can_cast(np.float32, value.dtype) or\n+                        value.dtype.kind == 'f' or\n                         value.dtype.fields):\n                     dtype = float\n \n@@ -378,7 +379,7 @@ class Quantity(np.ndarray, metaclass=InheritDocstrings):\n \n         # by default, cast any integer, boolean, etc., to float\n         if dtype is None and (not (np.can_cast(np.float32, value.dtype)\n-                                   or value.dtype.fields)\n+                                   or value.dtype.kind == 'f' or value.dtype.fields)\n                               or value.dtype.kind == 'O'):\n             value = value.astype(float)\n \n"
+  },
+  "matplotlib__matplotlib-25332": {
+    "model_name_or_path": "hosted_vllm/kat-16gb",
+    "instance_id": "matplotlib__matplotlib-25332",
+    "model_patch": "diff --git a/lib/matplotlib/figure.py b/lib/matplotlib/figure.py\nindex b4c38368bf..f125777746 100755\n--- a/lib/matplotlib/figure.py\n+++ b/lib/matplotlib/figure.py\n@@ -3170,6 +3170,9 @@ None}, default: None\n         # add version information to the state\n         state['__mpl_version__'] = mpl.__version__\n \n+        # Drop the align label groups, they cannot be pickled.\n+        state.pop(\"_align_label_groups\", None)\n+\n         # check whether the figure manager (if any) is registered with pyplot\n         from matplotlib import _pylab_helpers\n         if self.canvas.manager in _pylab_helpers.Gcf.figs.values():\n@@ -3187,6 +3190,11 @@ None}, default: None\n \n         self.__dict__ = state\n \n+        # re-initialise some of the unstored state information\n+        if \"_align_label_groups\" not in self.__dict__:\n+            import matplotlib.cbook as cbook\n+            self._align_label_groups = {\"x\": cbook.Grouper(), \"y\": cbook.Grouper()}\n+\n         # re-initialise some of the unstored state information\n         FigureCanvasBase(self)  # Set self.canvas.\n \n"
+  },
+  "sympy__sympy-13551": {
+    "model_name_or_path": "hosted_vllm/kat-16gb",
+    "instance_id": "sympy__sympy-13551",
+    "model_patch": "diff --git a/sympy/concrete/products.py b/sympy/concrete/products.py\nindex 66aafde2d..8ceff9c86 100644\n--- a/sympy/concrete/products.py\n+++ b/sympy/concrete/products.py\n@@ -278,14 +278,12 @@ def _eval_product(self, term, limits):\n             p, q = term.as_numer_denom()\n             q = self._eval_product(q, (k, a, n))\n             if q.is_Number:\n-\n-                # There is expression, which couldn't change by\n-                # as_numer_denom(). E.g. n**(2/3) + 1 --> (n**(2/3) + 1, 1).\n-                # We have to catch this case.\n-\n-                p = sum([self._eval_product(i, (k, a, n)) for i in p.as_coeff_Add()])\n+                # Can't evaluate product of a sum in general\n+                return None\n             else:\n                 p = self._eval_product(p, (k, a, n))\n+                if p is None:\n+                    return None\n             return p / q\n \n         elif term.is_Mul:\n"
+  },
+  "django__django-11999": {
+    "model_name_or_path": "hosted_vllm/kat-16gb",
+    "instance_id": "django__django-11999",
+    "model_patch": "diff --git a/django/db/models/fields/__init__.py b/django/db/models/fields/__init__.py\nindex ee45bb941e..96ccce72dd 100755\n--- a/django/db/models/fields/__init__.py\n+++ b/django/db/models/fields/__init__.py\n@@ -762,7 +762,7 @@ class Field(RegisterLookupMixin):\n             # such fields can't be deferred (we don't have a check for this).\n             if not getattr(cls, self.attname, None):\n                 setattr(cls, self.attname, self.descriptor_class(self))\n-        if self.choices is not None:\n+        if self.choices is not None and not hasattr(cls, 'get_%s_display' % self.name):\n             setattr(cls, 'get_%s_display' % self.name,\n                     partialmethod(cls._get_FIELD_display, field=self))\n \n"
+  },
+  "django__django-16454": {
+    "model_name_or_path": "hosted_vllm/kat-16gb",
+    "instance_id": "django__django-16454",
+    "model_patch": ""
+  },
+  "django__django-14351": {
+    "model_name_or_path": "hosted_vllm/kat-16gb",
+    "instance_id": "django__django-14351",
+    "model_patch": ""
+  },
+  "scikit-learn__scikit-learn-14710": {
+    "model_name_or_path": "hosted_vllm/kat-16gb",
+    "instance_id": "scikit-learn__scikit-learn-14710",
+    "model_patch": "diff --git a/sklearn/ensemble/_hist_gradient_boosting/gradient_boosting.py b/sklearn/ensemble/_hist_gradient_boosting/gradient_boosting.py\nindex ad6a5a8ca..3170e4000 100644\n--- a/sklearn/ensemble/_hist_gradient_boosting/gradient_boosting.py\n+++ b/sklearn/ensemble/_hist_gradient_boosting/gradient_boosting.py\n@@ -426,11 +426,15 @@ class BaseHistGradientBoosting(BaseEstimator, ABC):\n \n         Scores are computed on validation data or on training data.\n         \"\"\"\n+        if hasattr(self, 'classes_'):\n+            y_small_train = self.classes_[y_small_train.astype(int)]\n         self.train_score_.append(\n             self.scorer_(self, X_binned_small_train, y_small_train)\n         )\n \n         if self._use_validation_data:\n+            if hasattr(self, 'classes_'):\n+                y_val = self.classes_[y_val.astype(int)]\n             self.validation_score_.append(\n                 self.scorer_(self, X_binned_val, y_val)\n             )\n"
+  },
+  "django__django-14404": {
+    "model_name_or_path": "hosted_vllm/kat-16gb",
+    "instance_id": "django__django-14404",
+    "model_patch": "diff --git a/django/contrib/admin/sites.py b/django/contrib/admin/sites.py\nindex 59a4a0364d..74ef4c491e 100644\n--- a/django/contrib/admin/sites.py\n+++ b/django/contrib/admin/sites.py\n@@ -420,7 +420,7 @@ class AdminSite:\n     def catch_all_view(self, request, url):\n         if settings.APPEND_SLASH and not url.endswith('/'):\n             urlconf = getattr(request, 'urlconf', None)\n-            path = '%s/' % request.path_info\n+            path = '%s/' % request.path\n             try:\n                 match = resolve(path, urlconf)\n             except Resolver404:\n"
+  },
+  "django__django-16116": {
+    "model_name_or_path": "hosted_vllm/kat-16gb",
+    "instance_id": "django__django-16116",
+    "model_patch": ""
+  },
+  "django__django-15103": {
+    "model_name_or_path": "hosted_vllm/kat-16gb",
+    "instance_id": "django__django-15103",
+    "model_patch": "diff --git a/django/template/defaultfilters.py b/django/template/defaultfilters.py\nindex 5ccef38048..12f0d4caaa 100644\n--- a/django/template/defaultfilters.py\n+++ b/django/template/defaultfilters.py\n@@ -83,7 +83,7 @@ def escapejs_filter(value):\n \n \n @register.filter(is_safe=True)\n-def json_script(value, element_id):\n+def json_script(value, element_id=None):\n     \"\"\"\n     Output value JSON-encoded, wrapped in a <script type=\"application/json\">\n     tag.\ndiff --git a/django/utils/html.py b/django/utils/html.py\nindex da1b5675ec..25f3eba4b4 100644\n--- a/django/utils/html.py\n+++ b/django/utils/html.py\n@@ -61,7 +61,7 @@ _json_script_escapes = {\n }\n \n \n-def json_script(value, element_id):\n+def json_script(value, element_id=None):\n     \"\"\"\n     Escape all the HTML/XML special characters with their unicode escapes, so\n     value is safe to be output anywhere except for inside a tag attribute. Wrap\n@@ -69,10 +69,11 @@ def json_script(value, element_id):\n     \"\"\"\n     from django.core.serializers.json import DjangoJSONEncoder\n     json_str = json.dumps(value, cls=DjangoJSONEncoder).translate(_json_script_escapes)\n-    return format_html(\n-        '<script id=\"{}\" type=\"application/json\">{}</script>',\n-        element_id, mark_safe(json_str)\n-    )\n+    if element_id is not None:\n+        attrs = ' id=\"{}\" type=\"application/json\"'.format(element_id)\n+    else:\n+        attrs = ' type=\"application/json\"'\n+    return mark_safe('<script{}>{}</script>'.format(attrs, json_str))\n"
+  },
+  "django__django-14017": {
+    "model_name_or_path": "hosted_vllm/kat-16gb",
+    "instance_id": "django__django-14017",
+    "model_patch": "diff --git a/django/db/models/query_utils.py b/django/db/models/query_utils.py\nindex c957ffa564..02b788da32 100755\n--- a/django/db/models/query_utils.py\n+++ b/django/db/models/query_utils.py\n@@ -41,7 +41,10 @@ class Q(tree.Node):\n \n     def _combine(self, other, conn):\n         if not isinstance(other, Q):\n-            raise TypeError(other)\n+            if getattr(other, 'conditional', False):\n+                other = Q(other)\n+            else:\n+                raise TypeError(other)\n \n         # If the other Q() is empty, ignore it and just use `self`.\n         if not other:\n@@ -85,7 +88,8 @@ class Q(tree.Node):\n         if path.startswith('django.db.models.query_utils'):\n             path = path.replace('django.db.models.query_utils', 'django.db.models')\n         args, kwargs = (), {}\n-        if len(self.children) == 1 and not isinstance(self.children[0], Q):\n+        if (len(self.children) == 1 and isinstance(self.children[0], tuple) and\n+                not isinstance(self.children[0][0], Q)):\n             child = self.children[0]\n             kwargs = {child[0]: child[1]}\n         else:\n"
+  },
+  "sphinx-doc__sphinx-7985": {
+    "model_name_or_path": "hosted_vllm/kat-16gb",
+    "instance_id": "sphinx-doc__sphinx-7985",
+    "model_patch": ""
+  },
+  "pylint-dev__pylint-6903": {
+    "model_name_or_path": "hosted_vllm/kat-16gb",
+    "instance_id": "pylint-dev__pylint-6903",
+    "model_patch": "diff --git a/pylint/lint/run.py b/pylint/lint/run.py\nindex a7e5d557..6c697f76 100644\n--- a/pylint/lint/run.py\n+++ b/pylint/lint/run.py\n@@ -52,12 +52,12 @@ def _query_cpu() -> int | None:\n         with open(\"/sys/fs/cgroup/cpu/cpu.cfs_period_us\", encoding=\"utf-8\") as file:\n             cpu_period = int(file.read().rstrip())\n         # Divide quota by period and you should get num of allotted CPU to the container, rounded down if fractional.\n-        avail_cpu = int(cpu_quota / cpu_period)\n+        avail_cpu = int(cpu_quota / cpu_period) or 1\n     elif Path(\"/sys/fs/cgroup/cpu/cpu.shares\").is_file():\n         with open(\"/sys/fs/cgroup/cpu/cpu.shares\", encoding=\"utf-8\") as file:\n             cpu_shares = int(file.read().rstrip())\n         # For AWS, gives correct value * 1024.\n-        avail_cpu = int(cpu_shares / 1024)\n+        avail_cpu = int(cpu_shares / 1024) or 1\n     return avail_cpu\n \n \n"
+  },
+  "django__django-14053": {
+    "model_name_or_path": "hosted_vllm/kat-16gb",
+    "instance_id": "django__django-14053",
+    "model_patch": ""
+  },
+  "django__django-15037": {
+    "model_name_or_path": "hosted_vllm/kat-16gb",
+    "instance_id": "django__django-15037",
+    "model_patch": ""
+  },
+  "django__django-14792": {
+    "model_name_or_path": "hosted_vllm/kat-16gb",
+    "instance_id": "django__django-14792",
+    "model_patch": ""
+  }
+}

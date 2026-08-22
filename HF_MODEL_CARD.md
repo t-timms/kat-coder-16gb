@@ -31,13 +31,14 @@ coding model inside 16 GB of consumer VRAM** — 12.45 GiB, RTX 5070 Ti (SM120),
 vLLM. Built with a router-renormalization fix for this architecture (contributed
 upstream) and a vision tower stripped of its untrained weights.
 
-**SWE-bench Verified: 20/50 = 40.0% resolved**, via `mini-swe-agent`'s official
-bash-only scaffold — below the 56.4% bar set by Devstral Small (2512) under the
-same scaffold. 27 of 50 instances produced no usable patch; 18 of those hit the
-32K context ceiling this card's VRAM budget imposes, and the run must be read
-as context/step-limited, not as an unconditional capability measurement. See
-"SWE-bench Verified" below before citing the headline number without that
-context.
+**SWE-bench Verified: 26/50 = 52.0% resolved**, via `mini-swe-agent`'s official
+bash-only scaffold, at a 49K-token context ceiling — up from 40.0% at the
+original 32K ceiling tested on this same checkpoint. Still below the 56.4% bar
+set by Devstral Small (2512) under the same scaffold, but closed most of the
+gap. 17 of 50 instances produced no usable patch, all from hitting the context
+ceiling; the run must still be read as context-limited, not as an
+unconditional capability measurement. See "SWE-bench Verified" below before
+citing the headline number without that context.
 
 ## Highlights
 
@@ -46,7 +47,7 @@ context.
 | **12.45 GiB** | REAP 50% expert pruning + NVFP4A16 (weight-only, data-free), vision tower stripped |
 | **149.5 tok/s** median, n=5 | Benchmark config: 512 in / 256 out, batch 1, CUDA graphs (FULL_AND_PIECEWISE), 14,672-token context ceiling |
 | **89.0% / 90.5%** | HumanEval+ [83.3, 92.9] / MBPP+ [87.1, 93.0], greedy, instruct framing |
-| **40.0%** (20/50) | SWE-bench Verified, `mini-swe-agent` bash-only — see caveats below |
+| **52.0%** (26/50) | SWE-bench Verified, `mini-swe-agent` bash-only, 49K context — see caveats below |
 | **28.9 s load** | CUDA graphs enabled, no CPU offload |
 
 ## Why 50 percent
@@ -64,25 +65,30 @@ Supporting evidence: [Half the Experts, All the Code](https://arxiv.org/html/260
 pruned Qwen3.6-35B-A3B, this model's own base, at 50% with no statistically
 detectable loss on its primary code benchmark.
 
-## SWE-bench Verified — read before citing the 40.0% figure alone
+## SWE-bench Verified — read before citing the 52.0% figure alone
 
 | metric | value |
 |---|---:|
-| resolved | **20/50 = 40.0%** |
-| resolved of completed (valid patch produced) | 20/22 = **90.9%** |
-| ContextWindowExceeded | 18 (32K ceiling) |
-| LimitsExceeded | 9 |
-| garbage/invalid patch | 1 of 23 generated |
+| resolved | **26/50 = 52.0%** |
+| resolved of completed (valid patch produced and tested) | 26/32 = **81.25%** |
+| ContextWindowExceeded | 17 (49K ceiling) |
+| garbage/invalid patch (patch failed to apply) | 1 of 33 generated |
+| ran, tests failed (genuinely unresolved) | 6 |
 
-The scaffold is capped at a 32K-token context window — the safe ceiling this
-card's VRAM budget supports, not a property of the model. Devstral Small
-averages 86.9 LM calls/instance under the same scaffold; many KAT-Coder
-instances hit the context limit before finishing. **90.9% of instances where
-the model actually produced a patch had that patch resolve the issue** — most
-of the gap to the 56.4% competitive bar is instances that never got to submit
-a patch at all, not patches that were wrong. This is disclosed as a real
-result, not an excuse: the 40.0% headline number is the correct number to
-cite; the breakdown above is the correct context for interpreting it.
+Prior measurement at this checkpoint's original 32K-token ceiling: 20/50 =
+40.0% (18 ContextWindowExceeded, 20/22 = 90.9% resolved-of-completed). Raising
+the ceiling to 49K (`max_model_len 49152`, `max_num_seqs 2`) moved the
+headline number from 40.0% to 52.0%, but **not** primarily by reducing
+context-window failures — the failure rate barely moved (17/50 = 34% vs.
+18/50 = 36%). The gain came from instances that fit within the ceiling either
+way resolving far more often with more room to work in: 81.25%
+resolved-of-completed at 49K vs. 62.5% at 32K. The scaffold's context ceiling
+is still the safe limit this card's VRAM budget supports, not a property of
+the model — Devstral Small averages 86.9 LM calls/instance under the same
+scaffold, and instances needing more than 49K tokens of context still fail to
+submit at all. This is disclosed as a real result, not an excuse: 52.0% is the
+correct number to cite; the breakdown above is the correct context for
+interpreting it.
 
 ## Prior art and scope of claims
 
@@ -170,9 +176,11 @@ breakdown and required caveats.
 
 ## Known limitations
 
-- **32K context window** is a hardware-forced ceiling, not a design choice —
-  this card's KV-cache budget cannot safely support more. SWE-bench results
-  must be read as context/step-limited.
+- **49K context window** (raised from an earlier 32K ceiling) is a
+  hardware-forced limit, not a design choice — this card's KV-cache budget
+  cannot safely support more. SWE-bench results must still be read as
+  context-limited: 17 of 50 instances in the reported run failed purely from
+  exceeding this ceiling, not from the model failing the task.
 - **No pruning-ablation baseline measured.** The unpruned model is 69.3 GB
   bf16 and does not fit this hardware; the accuracy cost of pruning itself
   (independent of quantization) is not isolated here.

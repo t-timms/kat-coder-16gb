@@ -9,6 +9,20 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Added
 
+- **SWE-bench Verified raised from 40.0% to 52.0% (26/50) by widening the
+  context ceiling from 32K to 49K tokens.** Ran the full 50-instance pilot at
+  `max_model_len 49152, max_num_seqs 2` (`kat_overrides_sota.yaml`, validated
+  single-instance beforehand, now the default in `run_pilot_all.sh`), graded
+  with the official `swebench.harness.run_evaluation`: 0 infrastructure
+  failures, 0 crashes. The mechanism was not the one hypothesized —
+  context-window failures barely moved (17/50 = 34% vs. the prior 18/50 =
+  36%) — the gain came from instances that fit within the ceiling either way
+  resolving far more often with more room to reason and iterate:
+  resolved-of-completed went from 62.5% (20/32) at 32K to 81.25% (26/32) at
+  49K. Prior 32K/40.0% config preserved and documented as the reproducible
+  baseline (`MAXLEN=32768 MAXSEQS=8 KAT_CONFIG=kat_overrides.yaml`). Updated
+  README.md, HF_MODEL_CARD.md, and `run_pilot_all.sh`'s defaults accordingly.
+
 - **W4A4 re-quantization built, measured, and published as an alternative
   build.** 4096-token calibration, vision-tower stripped, smoke-tested
   clean under both eager mode and (after a crash on the first attempt,

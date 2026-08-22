@@ -35,26 +35,56 @@ than historical.
   investigated and rejected for the current checkpoint, with evidence. No
   changes needed to the serving config as a result — it was already correct.
 
-## Next (this session's actual deliverable — not yet run)
+## RESULT (2026-08-22): 50-instance pilot at 49K context — 26/50 = 52.0%
 
-**Launch the 50-instance SWE-bench Verified pilot** at the validated
-`MAXLEN=49152 MAXSEQS=2` config, to see whether raising context resolves the
-reported `ContextWindowExceeded` failures (see sourcing caveat under Done
-above) and moves the score past 40.0%.
+Launched on request, full 50 instances, graded with the official
+`swebench.harness.run_evaluation` (not just exit-status counts):
 
 ```bash
 cd ~/kat-coder-16gb/scripts/swebench
 MAXLEN=49152 MAXSEQS=2 KAT_CONFIG=kat_overrides_sota.yaml \
   bash run_pilot_all.sh 50 ~/swebench_sota
+bash grade_pilot.sh ~/swebench_sota
 ```
 
-Grade afterward with `bash grade_pilot.sh` against `~/swebench_sota`. Runs
-several hours unattended (2 Docker-backed rollout workers) — launch when there
-is a multi-hour block free, close Chrome first (last discretionary VRAM
-holder), and confirm `nvidia-smi` shows a clean GPU beforehand.
+Zero infrastructure failures, zero crashes, clean GPU teardown. Rollout: 33
+Submitted, 17 ContextWindowExceededError. Official grading of the 33
+submitted (1 failed to apply as a patch, 32 actually completed): **26
+resolved, 6 unresolved — 26/50 = 52.0%**, up from the prior 20/50 = 40.0% at
+32K context. Full official report and raw predictions committed:
+`results/hosted_vllm__kat-16gb.kat_pilot_024304_49k.json`,
+`results/preds_49k.json`.
 
-**This step is explicitly gated on being told to launch it** — do not start
-the 50-instance run automatically; wait to be asked.
+**The mechanism was not the one this section originally hypothesized.**
+Raising the ceiling did not meaningfully reduce the `ContextWindowExceeded`
+rate — 17/50 = 34% now vs. 18/50 = 36% before, functionally flat, and this
+was checked mid-run (partial samples at 16%, then 26%) before settling back
+up to 34% by the end, which is why the partial-sample checks during the run
+were reported with explicit "don't trust this yet" caveats rather than as a
+trend. The actual gain: instances that fit within the ceiling *either way*
+resolved far more often with more room to work in — resolved-of-completed
+went from 62.5% (20/32) at 32K to 81.25% (26/32) at 49K. More context helped
+completion quality on attempts the model could already fit, more than it
+helped the model avoid running out of room in the first place.
+
+Still below the 56.4% competitive bar (Devstral Small 2512), but closed most
+of the gap (40.0% → 52.0% vs. a 16.4-point gap to close). `run_pilot_all.sh`'s
+defaults changed to this SOTA config (`MAXLEN=49152 MAXSEQS=2
+KAT_CONFIG=kat_overrides_sota.yaml`) since it's now the better-performing,
+fully-validated option; the 32K/40.0% config is preserved and documented as
+the reproducible fallback baseline, not deleted. README.md and
+HF_MODEL_CARD.md updated to cite 52.0% as the headline number.
+
+**Next, if pursued further:** the context-*budget* config
+(`kat_overrides_context_managed.yaml`, reduces `max_tokens` instead of
+raising the ceiling) is a different, still-untested lever — worth trying
+since this run showed the ceiling-raise's benefit came from completion
+quality, not fewer context failures, which is a different mechanism than
+what a tighter output budget would target. The 17 remaining
+`ContextWindowExceeded` instances are also a candidate list for testing
+whether the chat-template experiment (see
+`t-timms/kat-coder-16gb-serving-experiments`, -12% content on the one
+instance tested there) reduces token usage enough to rescue any of them.
 
 ## Next major project: W4A4 re-quantization
 

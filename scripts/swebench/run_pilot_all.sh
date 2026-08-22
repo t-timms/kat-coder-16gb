@@ -22,16 +22,20 @@ PORT=8000
 MODEL=~/models/kat-50pct-nvfp4a16-renorm-stripped
 ENVBIN=~/swebench-env/bin
 CFGDIR=~/kat_swebench
-# Default is the tested config. Set KAT_CONFIG=kat_overrides_context_managed.yaml
-# to try the unvalidated context-budget experiment instead (see that file for
-# what it changes and the known risk it hasn't been tested against).
-KAT_CONFIG="${KAT_CONFIG:-kat_overrides.yaml}"
-# Serving limits. Defaults reproduce the 40.0% baseline exactly.
-# For the measured high-context config (2026-08-21 probe, clean GPU):
-#   MAXLEN=49152 MAXSEQS=2  -> 1.22 GiB KV, 98,304 tokens, 2.00x concurrency,
-#   i.e. both --workers 2 rollouts hold a full-length context with no preemption.
-MAXLEN="${MAXLEN:-32768}"
-MAXSEQS="${MAXSEQS:-8}"
+# Default is now the SOTA config, validated 2026-08-22 on a full 50-instance
+# run: 26/50 = 52.0%, up from 40.0% at the old default (0 infrastructure
+# failures, 0 crashes). Set KAT_CONFIG=kat_overrides.yaml + MAXLEN=32768
+# MAXSEQS=8 to reproduce the original 32K/40.0% baseline instead. Set
+# KAT_CONFIG=kat_overrides_context_managed.yaml to try the still-unvalidated
+# context-*budget* experiment (reduces max_tokens instead of raising the
+# ceiling - a different, untested lever - see that file for what it changes).
+KAT_CONFIG="${KAT_CONFIG:-kat_overrides_sota.yaml}"
+# Serving limits. Defaults reproduce the 52.0% result (2026-08-22 full-pilot
+# run) exactly: 1.22-1.41 GiB KV depending on Windows-side VRAM contention,
+# ~90-98K tokens, both --workers 2 rollouts hold most or all of a full-length
+# context. MAXLEN=32768 MAXSEQS=8 reproduces the original 40.0% baseline.
+MAXLEN="${MAXLEN:-49152}"
+MAXSEQS="${MAXSEQS:-2}"
 STOCK=~/swebench-env/lib/python3.12/site-packages/minisweagent/config/benchmarks/swebench.yaml
 LOG=~/kat_serve.log
 

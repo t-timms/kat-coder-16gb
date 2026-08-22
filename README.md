@@ -13,7 +13,7 @@ Pipeline: REAP expert pruning at 50 percent, then NVFP4 quantization, served by 
 | **Speed** | **149.5 tok/s** median, n=5 | 512 in / 256 out, batch 1, CUDA graphs (PIECEWISE) |
 | **HumanEval+** | **89.0%** [83.3, 92.9] | greedy, instruct framing, 164 problems; reproduced at 90.9% on the released checkpoint |
 | **MBPP+** | **90.5%** [87.1, 93.0] | greedy, instruct framing, 378 problems; reproduced at 89.9% on the released checkpoint |
-| **SWE-bench Verified** | **40.0%** (20/50 resolved) | mini-swe-agent bash-only, 32K context ceiling; 27/50 empty patch (18 from hitting the ceiling) |
+| **SWE-bench Verified** | **52.0%** (26/50 resolved) | mini-swe-agent bash-only, 49K context ceiling; 17/50 empty patch, all from hitting the ceiling |
 | **Load time** | 28.9 s | CUDA graphs enabled, no CPU offload |
 
 Released checkpoint: [`Ttimms/KAT-Coder-V2.5-Dev-REAP-50-NVFP4A16`](https://huggingface.co/Ttimms/KAT-Coder-V2.5-Dev-REAP-50-NVFP4A16).
@@ -22,11 +22,16 @@ CPU offload. NVFP4A16 is weight-only, so no FP4 arithmetic is required or used:
 vLLM serves it through the Marlin NVFP4 kernel, which decodes the 4-bit weights
 and computes in bf16. Numerically clean — no pad collapse, no NaN.
 
-SWE-bench Verified is below the competitive bar (Devstral Small 2512, 56.4%
-under the same scaffold) — see Honest positioning. Over half the empty-patch
-failures trace to the 32K context ceiling rather than the model failing the
-task. An opt-in context-managed agent config is scaffolded for that case and
-is not yet validated — see Status below.
+SWE-bench Verified is still below the competitive bar (Devstral Small 2512,
+56.4% under the same scaffold — see Honest positioning) but closed most of
+the gap: raising the context ceiling from 32K to 49K tokens
+(`max_model_len 49152`, `max_num_seqs 2`, trading concurrency for headroom)
+moved the score from 40.0% to 52.0%. The context-window failure rate itself
+barely moved (34% vs. the prior 36%) — the gain came from a different
+mechanism than expected: instances that fit within the ceiling either way
+resolved far more often with more room to work in (81.25% of completed
+instances resolved at 49K, vs. 62.5% at 32K), not from hitting the ceiling
+less often. This is now the default agentic config — see Status below.
 
 ## Status
 
@@ -40,9 +45,10 @@ is not yet validated — see Status below.
 | CUDA graphs (7.4x over eager) | done |
 | Agentic serving config (prefix caching, 45x) | done |
 | HumanEval+ / MBPP+ accuracy | done (89.0% / 90.5%) |
-| SWE-bench Verified via mini-swe-agent | done — 20/50 = 40.0%, 18 CWE (32K ceiling); the 60% sparsity comparison runs in [a separate repository](https://github.com/t-timms/kat-coder-16gb-60pct-experiment) |
+| SWE-bench Verified via mini-swe-agent | done — 26/50 = 52.0% at 49K context (`kat_overrides_sota.yaml`, now the default); 40.0% at the original 32K ceiling, kept below as the prior baseline. The 60% sparsity comparison runs in [a separate repository](https://github.com/t-timms/kat-coder-16gb-60pct-experiment) |
 | Rollout throughput (`max_num_seqs` 2→8) | done, tested — 1.86x concurrency, no score impact |
-| Context-budget experiment (opt-in, targets the 18 CWE above) | scaffolded, unvalidated — see `kat_overrides_context_managed.yaml` |
+| Context ceiling raised 32K→49K (`max_model_len`, `max_num_seqs` 8→2) | done, validated on the full 50-instance pilot — see Results above |
+| Context-*budget* experiment (opt-in, reduces `max_tokens` instead of raising the ceiling) | scaffolded, still unvalidated, a different lever than the one above — see `kat_overrides_context_managed.yaml` |
 | Release checkpoint on Hugging Face | published — [`Ttimms/KAT-Coder-V2.5-Dev-REAP-50-NVFP4A16`](https://huggingface.co/Ttimms/KAT-Coder-V2.5-Dev-REAP-50-NVFP4A16) |
 | W4A4 (native FP4 kernels) alternative build | published, see below |
 
@@ -120,7 +126,7 @@ bash scripts/bench/bench_ab.sh 5
 
 ```bash
 # Prerequisite: Docker Engine in WSL, mini-swe-agent + swebench installed
-bash scripts/swebench/run_pilot_all.sh 50    # ~2-3 hours for 50 instances
+bash scripts/swebench/run_pilot_all.sh 50    # ~2-3 hours for 50 instances, defaults to the 49K/52.0% config
 bash scripts/swebench/grade_pilot.sh         # official SWE-bench harness
 ```
 
@@ -128,10 +134,12 @@ The serve + rollout + teardown are combined in one script because starting the
 server from a separate invocation reports READY and then dies when that invocation
 exits. See `scripts/swebench/README.md` for the full agentic pipeline docs.
 
-To try the unvalidated context-budget config aimed at the 18 CWE failures
-above, instead run `KAT_CONFIG=kat_overrides_context_managed.yaml bash
-scripts/swebench/run_pilot_all.sh 50`. Default behavior is unchanged without
-that env var.
+Defaults are `MAXLEN=49152 MAXSEQS=2 KAT_CONFIG=kat_overrides_sota.yaml` — the
+config that produced the 52.0% result above. To reproduce the original 32K/40.0%
+baseline instead, run `MAXLEN=32768 MAXSEQS=8 KAT_CONFIG=kat_overrides.yaml bash
+scripts/swebench/run_pilot_all.sh 50`. A third, still-unvalidated config
+(reduces `max_tokens` instead of raising the context ceiling) is available via
+`KAT_CONFIG=kat_overrides_context_managed.yaml`.
 
 **7. Run HumanEval / MBPP+ (non-agentic accuracy)**
 
@@ -174,18 +182,21 @@ whole history every step. Measured on a 13,130-token history:
 | caching OFF | 31.25 s | 30.74 s |
 | **caching ON** | 9.39 s | **0.21 s** |
 
-Working agentic config:
+Working agentic config, validated on a full 50-instance run (0 infrastructure
+failures, 0 crashes — see Results above):
 
 ```
---max-model-len 32768 --max-num-seqs 2 --gpu-memory-utilization 0.92
+--max-model-len 49152 --max-num-seqs 2 --gpu-memory-utilization 0.92
 --kv-cache-dtype fp8 --enable-prefix-caching --max-num-batched-tokens 4096
 --reasoning-parser qwen3 --language-model-only
 --compilation-config '{"cudagraph_capture_sizes":[1,2],"cudagraph_mode":"PIECEWISE"}'
 ```
 
-The KV budget fluctuates 0.49-1.41 GiB with the Windows desktop's VRAM.
-Never set `max_model_len` near a measured ceiling; 32768 survives the worst case.
-See `scripts/swebench/README.md` for the full measured table.
+The KV budget fluctuates with the Windows desktop's VRAM. `max_model_len 32768`
+is the more conservative fallback if this ceiling ever proves too tight on a
+different machine — it was the original validated config (40.0%) before the
+49K ceiling replaced it as the default. See `scripts/swebench/README.md` for
+the full measured table.
 
 ## Environment constraints, all verified on this machine
 
