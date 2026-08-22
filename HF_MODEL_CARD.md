@@ -180,19 +180,22 @@ breakdown and required caveats.
   academia — these numbers are self-reported and independently reproducible
   from the released evaluation scripts, not a leaderboard entry.
 
-## W4A4 re-quantization: investigated, not shipped
+## W4A4: an alternative quantization strategy
 
-A follow-up build re-quantized this checkpoint to `NVFP4` (W4A4 — weights
-**and** activations to 4 bits) to reach native FP4 tensor-core kernels
-instead of this model's Marlin dequant-to-bf16 fallback. Measured properly
-(5 interleaved runs per arm, median + range, under both isolated eager mode
+A follow-up build, [`Ttimms/KAT-Coder-V2.5-Dev-REAP-50-NVFP4-W4A4`](https://huggingface.co/Ttimms/KAT-Coder-V2.5-Dev-REAP-50-NVFP4-W4A4),
+re-quantizes this same pruned checkpoint to `NVFP4` (W4A4 — weights **and**
+activations to 4 bits) to reach native FP4 tensor-core kernels instead of
+this model's Marlin dequant-to-bf16 fallback. Measured properly (5
+interleaved runs per arm, median + range, under both isolated eager mode
 and the same PIECEWISE CUDA-graph configuration this model actually serves
-with): W4A4 decodes at 119.2 tok/s vs this checkpoint's 142.5 tok/s (0.84x,
-slower) with accuracy a wash (HumanEval 92.07% vs 95.7%, HumanEval+ 89.02%
-vs 90.9%, MBPP+ 91.01% vs 89.9%). Native FP4×FP4 compute did not beat the
-dequant fallback on this hardware for a single-stream decode workload — a
-negative result, not published as a checkpoint. Full writeup:
-[`ROADMAP.md`](https://github.com/t-timms/KAT-Coder-V2.5-Dev-REAP-50-NVFP4A16/blob/main/ROADMAP.md)'s
+with): W4A4 decodes at 119.2 tok/s vs this checkpoint's 142.5 tok/s (0.84x)
+with a mixed accuracy picture (HumanEval 92.07% vs 95.7%, HumanEval+ 89.02%
+vs 90.9%, MBPP+ 91.01% vs 89.9% — that last one favors W4A4). This
+checkpoint is faster on this hardware and is what we default to; the W4A4
+build is a legitimate alternative if the native FP4 execution path matters
+more for your use case. Only single-stream (batch=1) decode was measured.
+Full writeup:
+[`ROADMAP.md`](https://github.com/t-timms/moe-pruning-nvfp4/blob/main/ROADMAP.md)'s
 RESULT section in the release repo.
 
 ## License

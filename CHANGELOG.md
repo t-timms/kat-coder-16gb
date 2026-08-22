@@ -9,19 +9,22 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Added
 
-- **W4A4 re-quantization built and measured — negative result, not shipped.**
-  4096-token calibration, vision-tower stripped, smoke-tested clean under
-  both eager mode and (after a real crash on the first attempt, traced to a
-  one-time JIT-compile hiccup and confirmed clean on rerun) production
-  PIECEWISE CUDA graphs. Measured against the published A16 checkpoint with
-  5 interleaved invocations per arm under both execution modes: W4A4 decodes
-  at 0.77x A16 in eager mode and 0.84x under PIECEWISE (119.2 vs 142.5
-  tok/s) — slower under the model's actual production serving
-  configuration, not just in isolation. Accuracy is a wash (HumanEval
-  92.07% vs 95.7%, HumanEval+ 89.02% vs 90.9%, MBPP+ 91.01% vs 89.9%).
-  Native FP4×FP4 tensor-core compute does not beat Marlin's dequant
-  fallback on this hardware for a single-stream decode workload. Full
-  writeup in `ROADMAP.md`'s RESULT section and
+- **W4A4 re-quantization built, measured, and published as an alternative
+  build.** 4096-token calibration, vision-tower stripped, smoke-tested
+  clean under both eager mode and (after a crash on the first attempt,
+  traced to a one-time JIT-compile hiccup and confirmed clean on rerun)
+  production PIECEWISE CUDA graphs. Measured against the published A16
+  checkpoint with 5 interleaved invocations per arm under both execution
+  modes: W4A4 decodes at 0.77x A16 in eager mode and 0.84x under PIECEWISE
+  (119.2 vs 142.5 tok/s), with a mixed accuracy picture (HumanEval 92.07%
+  vs 95.7%, HumanEval+ 89.02% vs 90.9%, MBPP+ 91.01% vs 89.9% — that last
+  one favors W4A4). A16 remains the faster build on this hardware for
+  single-stream decode and stays the default release; W4A4 is published
+  separately as
+  [`Ttimms/KAT-Coder-V2.5-Dev-REAP-50-NVFP4-W4A4`](https://huggingface.co/Ttimms/KAT-Coder-V2.5-Dev-REAP-50-NVFP4-W4A4)
+  for anyone who wants the native FP4×FP4 tensor-core execution path
+  specifically, or wants to verify or extend the comparison. Full writeup
+  in `ROADMAP.md`'s RESULT section and
   `docs/optimization_research_2026-08-21.md` §4; corrected an earlier,
   wrong "~+31% throughput, already measured" claim along the way, traced to
   an uncited pre-measurement guess in the A16 quantize script's docstring.

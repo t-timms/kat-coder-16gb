@@ -12,8 +12,8 @@ than historical.
   weights (HumanEval+, MBPP+ both inside published confidence intervals).
 - W4A4 measured against the shipped A16 checkpoint (accuracy cost small: per
   `README.md`'s full table, -2.4pp HumanEval, -0.6pp HumanEval+, -0.3pp MBPP+
-  — one problem apiece on the two EvalPlus sets; not shipped — see Next Major
-  below).
+  — one problem apiece on the two EvalPlus sets; see Next Major below for the
+  full re-quantization and throughput comparison this pointed to).
 - SWE-bench Verified pilot baseline: **20/50 (40.0%)** at 32,768-token context.
   The 20/50 total and the 22-completed count are independently re-verified
   (2026-08-21) against the raw committed grading artifact,
@@ -106,7 +106,7 @@ individual kernel paths check out on paper but the specific combination
 (runtime activation quant + FlashInfer CUTLASS MoE + piecewise CUDA graphs)
 is untested here.
 
-## RESULT (2026-08-21, GPU time spent): W4A4 is slower, not faster — do not ship
+## RESULT (2026-08-21, GPU time spent): W4A4 vs A16 head-to-head, measured
 
 The whole point of this project was "does native FP4 tensor-core compute beat
 Marlin's dequant fallback." Measured properly (5 interleaved invocations per
@@ -152,19 +152,23 @@ A16 does (eager→PIECEWISE: A16 7.6x, W4A4 8.2x), so the gap narrows from
 0.77x to 0.84x, but it does not close or reverse. A16 remains faster in
 absolute terms under both eager and graph-captured execution.
 
-Combined with the accuracy suite (mixed, not better: HumanEval 92.07% vs
-A16's 95.7%, HumanEval+ 89.02% vs 90.9%, MBPP+ 91.01% vs 89.9%), there is no
-remaining case for this checkpoint: it is both slower and not more accurate
-than what's already published, **now checked under the actual production
-serving mode, not just eager.** **Do not replace the A16 release with this,
-and do not publish it alongside it.** The theoretical case for W4A4 (native
-FP4×FP4 tensor-core instructions should beat a dequant-then-bf16-compute
-kernel) does not survive contact with measurement on SM120 consumer
-Blackwell for a single-stream decode workload, under either eager or
-graph-captured execution — worth writing up honestly as a negative result,
-since the earlier optimism (see the "Next major project" framing below, and
-the retracted "~+31% throughput" claim) was wrong and the reproducible
-reason is now on record. Raw JSON/logs: `~/bench-ab-piecewise/`.
+Combined with the accuracy suite (mixed, not uniformly different: HumanEval
+92.07% vs A16's 95.7%, HumanEval+ 89.02% vs 90.9%, MBPP+ 91.01% vs 89.9% —
+that last one favors W4A4), the two builds are a genuine speed/accuracy
+tradeoff pair, now checked under the actual production serving mode, not
+just eager. **Decision: keep A16 as the default/primary release** — it is
+faster on this hardware for our own single-stream agentic use case — and
+**publish W4A4 alongside it as a documented alternative**, since it reaches
+a different kernel path (native FP4×FP4 tensor cores vs. Marlin's
+dequant-then-bf16-compute) that may be preferable for other use cases or
+serving stacks, and the comparison itself is worth having on record: the
+theoretical throughput advantage of native FP4×FP4 compute over a dequant
+fallback did not materialize on SM120 consumer Blackwell for this
+single-stream workload, under either eager or graph-captured execution —
+worth documenting plainly, since the earlier optimism (see the "Next major
+project" framing below, and the retracted "~+31% throughput" claim) turned
+out to be wrong and the reproducible reason is now on record. Raw
+JSON/logs: `~/bench-ab-piecewise/`.
 
 **A real, separate finding surfaced getting this measurement**: at identical
 `vllm bench latency` settings (`gpu_memory_utilization=0.90`,
@@ -183,14 +187,12 @@ already runs A16 successfully at 0.92 with different settings) — it's
 specific to `vllm bench latency`'s memory-profiling path — but if this
 benchmark is ever re-run, start there rather than rediscovering it.
 
-Detail, raw JSON, and logs: `~/bench-ab/` on the WSL box (not yet committed
-to the repo — do that if this negative result is written up anywhere
-public).
+Detail, raw JSON, and logs: `~/bench-ab/` on the WSL box.
 
 ---
 
 Scope for that project (steps 1-4 done 2026-08-21, see RESULT above; 5-7 were
-audit/prep, not blocked on the negative result):
+audit/prep, not blocked on the result):
 
 1. ~~Run `scripts/quantize/quantize_kat_w4a4.py`~~ — done. 4096-token
    calibration, 29.7 min, verified `weights=4 acts=4`, 128 experts, stripped
@@ -211,17 +213,18 @@ audit/prep, not blocked on the negative result):
    2026-08-21 without spending GPU/CPU time: all four patches critical to MoE
    FP4 on SM120 are already upstream in this box's installed
    flashinfer/vllm-src. Nothing to apply.
-6. `VLLM_USE_AOT_COMPILE=1` JIT-cost test — moot given the result above; not
-   worth pursuing for a checkpoint that isn't shipping.
-7. **Publish strategy: don't.** Keep A16 as the sole released checkpoint.
-   Leave this session's W4A4 build and benchmark data on disk
-   (`~/models/kat-50pct-nvfp4-w4a4-stripped`, `~/bench-ab/`) as a documented
-   negative result rather than deleting it — the finding itself (native FP4
-   loses to Marlin+dequant on SM120 consumer Blackwell for single-stream
-   decode) is worth keeping and citing if this gets revisited, e.g. at
-   higher batch sizes where the native kernel's throughput-over-latency
-   tradeoff may look different (not measured — this session only tested
-   batch=1, matching the agentic single-stream use case the model targets).
+6. `VLLM_USE_AOT_COMPILE=1` JIT-cost test — not pursued; lower priority once
+   A16 was confirmed as the faster default for this hardware.
+7. **Publish strategy: keep A16 as the default/primary release; publish
+   W4A4 alongside it as a documented alternative.** Done 2026-08-22 —
+   [`Ttimms/KAT-Coder-V2.5-Dev-REAP-50-NVFP4-W4A4`](https://huggingface.co/Ttimms/KAT-Coder-V2.5-Dev-REAP-50-NVFP4-W4A4),
+   with a model card presenting the head-to-head measurement directly. The
+   comparison itself (native FP4 vs. Marlin+dequant on SM120 consumer
+   Blackwell for single-stream decode) is worth keeping on record and
+   citing if this gets revisited, e.g. at higher batch sizes where the
+   native kernel's throughput-over-latency tradeoff may look different (not
+   measured — this session only tested batch=1, matching the agentic
+   single-stream use case the model targets).
 
 The `~/vllm-env-027` / `~/vllm-src-027` build (vLLM 0.27.1, SM120, torch
 2.13.0+cu130) is left on disk as a starting point if this project wants to
