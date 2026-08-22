@@ -97,6 +97,15 @@ submit at all. This is disclosed as a real result, not an excuse: 52.0% is the
 correct number to cite; the breakdown above is the correct context for
 interpreting it.
 
+**Config note (2026-08-22):** the 52.0% figure above was measured on
+`kat_overrides_sota.yaml` as it stood on 2026-08-22. That file has since had
+two missing sampling parameters added (`presence_penalty`, `top_k`),
+completing this base model's own documented sampling recommendation (see
+"Usage" below). Tested on one instance with repeated draws — it measurably
+suppressed a genuine repetition-loop failure — but a **full-pilot
+re-validation with this change has not been run yet**, so no updated
+SWE-bench score exists to cite for the current default config.
+
 ## Prior art and scope of claims
 
 Verified against the Hugging Face Hub on 2026-08-17:
@@ -154,6 +163,14 @@ lever measured on this model — 45x on replayed history (0.21 s vs 30.74 s for
 a 13,130-token history). Never set `--max-model-len` near a measured ceiling:
 available KV cache swings 0.49–1.41 GiB with host desktop VRAM use, and higher
 values fail intermittently rather than at startup.
+
+**Recommended sampling** (client-side generation parameters, separate from
+the server flags above): `Kwaipilot/KAT-Coder-V2.5-Dev`'s own model card
+documents `temperature=1.0, top_p=0.95, presence_penalty=1.5, top_k=20`
+together for Thinking mode. `presence_penalty`/`top_k` measurably suppressed
+a genuine repetition-loop failure in agentic testing on this checkpoint (see
+the SWE-bench config note above) — pass all four together rather than only
+`temperature`/`top_p`.
 
 ## Evaluation
 
