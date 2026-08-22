@@ -1,5 +1,8 @@
 # kat-coder-nvfp4
 
+[![verify](https://img.shields.io/github/actions/workflow/status/t-timms/kat-coder-nvfp4/verify.yml?style=flat-square&label=verify)](https://github.com/t-timms/kat-coder-nvfp4/actions/workflows/verify.yml)
+[![License](https://img.shields.io/badge/license-Apache%202.0-green?style=flat-square)](./LICENSE)
+
 Making `Kwaipilot/KAT-Coder-V2.5-Dev` (69.40 SWE-bench Verified) run as a usable
 local agentic coding model inside 16 GB of consumer VRAM, on an RTX 5070 Ti (SM120).
 
