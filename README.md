@@ -44,6 +44,30 @@ is not yet validated — see Status below.
 | Rollout throughput (`max_num_seqs` 2→8) | done, tested — 1.86x concurrency, no score impact |
 | Context-budget experiment (opt-in, targets the 18 CWE above) | scaffolded, unvalidated — see `kat_overrides_context_managed.yaml` |
 | Release checkpoint on Hugging Face | published — [`Ttimms/KAT-Coder-V2.5-Dev-REAP-50-NVFP4A16`](https://huggingface.co/Ttimms/KAT-Coder-V2.5-Dev-REAP-50-NVFP4A16) |
+| W4A4 re-quantization (native FP4 kernels) | investigated, not shipped — negative result, see below |
+
+## W4A4: investigated, not shipped
+
+The obvious next lever was re-quantizing to `NVFP4` (W4A4, weights *and*
+activations to 4 bits) to reach native FP4 tensor-core kernels instead of
+A16's Marlin dequant-to-bf16 fallback. Built it, and measured it properly —
+both in isolated eager mode and under the same PIECEWISE CUDA-graph
+configuration this repo actually serves with, 5 interleaved runs per arm,
+median + range:
+
+| | HumanEval | HumanEval+ | MBPP+ | decode (PIECEWISE, production-representative) |
+|---|---:|---:|---:|---:|
+| A16 (published, above) | 95.7% | 90.9% | 89.9% | 142.5 tok/s |
+| W4A4 (built, not published) | 92.07% | 89.02% | 91.01% | 119.2 tok/s |
+
+**W4A4 is slower (0.84x A16) and not more accurate.** The theoretical
+advantage of native FP4×FP4 tensor-core compute over a dequant fallback did
+not survive measurement, on this card, for a single-stream agentic decode
+workload. Full writeup, including the memory-margin and kernel-selection
+findings along the way, in `ROADMAP.md`'s RESULT section and
+`docs/optimization_research_2026-08-21.md`. The checkpoint and raw benchmark
+data are kept (not deleted) as a documented negative result — if higher
+batch sizes change this tradeoff, that's untested and worth revisiting.
 
 ## Quickstart
 

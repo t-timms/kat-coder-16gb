@@ -22,6 +22,56 @@ DIFFERENCE FROM THE A16 RUN
     ACTIVATIONS, so it needs real calibration data and will take substantially
     longer. Calibration uses evol-codealpaca, deliberately NOT the Magicoder set
     reserved for evaluation.
+
+PRE-LAUNCH AUDIT (2026-08-21, no GPU/CPU compute spent — filesystem + docs only)
+    Checked this recipe and this box's environment against upstream llm-compressor's
+    own Qwen3.5 MoE NVFP4 example and against the vLLM/FlashInfer source actually
+    installed here, before spending a CPU-hours-long calibration run on it:
+      - Ignore list matches the official Qwen3.5-MoE NVFP4 example exactly (lm_head,
+        visual*, mlp.gate$, embed_tokens$, shared_expert_gate$, linear_attn*), plus
+        two extras this checkpoint's architecture needs (conv1d*, mtp*) that the
+        stock example doesn't have to handle.
+      - scheme="NVFP4" defaults (compressed-tensors 0.18.0, installed in
+        ~/quant-env) already ARE current best practice with no recipe override
+        needed: weights use memoryless_minmax, input_activations use dynamic-local
+        + static_minmax — matches what upstream now ships by default. GPTQModifier
+        is NOT part of the reference recipe for NVFP4 (unlike coarser INT4
+        schemes) — not added here.
+      - MAX_SEQ raised 2048 -> 4096 to match the official Qwen3.5-MoE NVFP4 example
+        (256 samples / 4096 tokens) and because this project's SWE-bench serving
+        config now runs a 49,152-token window — the old 2048 cap calibrated on
+        much shorter contexts than deployment actually uses. Box has 78 GiB RAM
+        free (checked 2026-08-21), so this is affordable; it does roughly double
+        CPU calibration wall-clock, since `device_map="cpu"` runs calibration
+        forward passes on CPU, not GPU.
+      - The critical SM12x kernel bug this scheme could hit (vLLM PR #35947/#37725:
+        CMake was stripping the "a" arch suffix, producing plain sm_120 instead of
+        sm_120a and disabling the native e2m1 FP4 conversion instruction, causing
+        NaN in NVFP4 activation quantization) is CONFIRMED ALREADY FIXED in this
+        box's vLLM build: `~/vllm-src` is tag v0.26.0 (2026-07-26), and
+        `cmake/utils.cmake`'s `string_to_ver` macro already preserves the a/f
+        suffix, with `CUDA_SUPPORTED_ARCHS` including 12.0 and 12.1. Nothing to
+        patch.
+      - All four "Critical priority" lna-lab/blackwell-geforce-nvfp4-gemm patches
+        that matter for MoE FP4 on SM120 (#1 grouped-GEMM tile sizing, #3/#4
+        device-family gates, #8/#9 FlashInfer JIT SM120 gencode + FP4-quant JIT)
+        are CONFIRMED already present in the installed flashinfer 0.6.14 and this
+        vllm-src checkout — verified directly by grepping the installed source,
+        not inferred. No community patch needs applying before this build's first
+        serve.
+      - `~/.cache/flashinfer` already exists (180 MiB, populated by the A16 runs)
+        and FlashInfer caches compiled kernels there across server restarts. The
+        833 s first-load JIT cost measured 2026-08-20 is a one-time cost FOR THIS
+        MACHINE, not per-restart — it just hasn't been paid yet for W4A4's own
+        kernel set (activation-quant + FP4 MoE grouped GEMM), since A16 never
+        exercises those kernels. Consider `VLLM_USE_AOT_COMPILE=1` (exists in this
+        vLLM build, default off) to test whether it removes the JIT cost outright
+        rather than just caching it after the first hit.
+      - NOT verified: an actual W4A4 MoE forward pass has never been run on this
+        card. The FlashInfer CUTLASS MoE + runtime activation-quantization
+        combination is new to this box even though its individual pieces check
+        out on paper. Per this project's own standing practice, smoke-test on a
+        handful of tokens before spending the full HumanEval+/MBPP+ suite on it.
 """
 
 from __future__ import annotations
@@ -46,7 +96,7 @@ SRC = (
 DST = pathlib.Path.home() / "models" / "kat-50pct-nvfp4-w4a4"
 
 NUM_CALIB = 256
-MAX_SEQ = 2048
+MAX_SEQ = 4096  # raised from 2048 2026-08-21; see PRE-LAUNCH AUDIT above
 
 print(f"source : {SRC}", flush=True)
 print(f"dest   : {DST}", flush=True)

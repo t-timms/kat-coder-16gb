@@ -130,12 +130,99 @@ but zero attention backends implement it for a `head_size=256` hybrid
 mamba/attention config. Declared-but-unimplemented, not a tuning gap — fp8 KV
 cache (current config) stays correct.
 
+## 4. W4A4 launch-prep audit — no GPU/CPU compute spent
+
+A later pass this same day, prompted by wanting to start the "Next major
+project: W4A4 re-quantization" roadmap item, but deliberately done with the
+GPU and CPU idle (filesystem reads, installed-package introspection, and web
+research only — no model loaded, no calibration run, no server started).
+Goal: catch config problems the way §1's `gpu_memory_utilization` regression
+or the swebench `cost_tracking` bug were caught, but *before* spending
+CPU-hours on a real calibration run, per this project's own standing practice
+of validating before an expensive run.
+
+**`quantize_kat_w4a4.py`'s recipe checked against upstream, not just re-read.**
+Fetched llm-compressor's own current Qwen3.5-MoE NVFP4 example
+(`docs.vllm.ai/projects/llm-compressor/.../key-models/qwen3.5/nvfp4-moe-example/`)
+and compared line-by-line. The ignore list matches exactly (`lm_head`,
+`visual*`, `mlp.gate$`, `embed_tokens$`, `shared_expert_gate$`,
+`linear_attn*`), modulo two extra patterns (`conv1d*`, `mtp*`) this
+architecture needs and the reference model doesn't have. `moe_calibrate_all_experts=True`
+matches. Confirmed directly against the installed `compressed_tensors==0.18.0`
+(`preset_name_to_scheme("NVFP4", ["Linear"])`) that the scheme's defaults —
+`memoryless_minmax` for weights, dynamic-local + `static_minmax` for
+activations — already match current upstream guidance with zero recipe
+overrides needed. `GPTQModifier` is not part of the reference NVFP4 recipe
+(unlike coarser INT4 schemes, where literature recommends it) — correctly not
+used here.
+
+**One real change made**: `MAX_SEQ` raised 2048 → 4096 in the script, matching
+the official example's 4096-token calibration length and this project's own
+49,152-token SWE-bench serving window (2048 was calibrating on much shorter
+sequences than deployment uses). Box has 78 GiB free RAM (checked directly),
+so this is affordable, but calibration runs on CPU (`device_map="cpu"`) and
+roughly doubles wall-clock versus the old setting — a real cost, not a free
+upgrade.
+
+**The SM12x NaN/illegal-instruction risk this scheme could hit — checked
+directly, not assumed away.** vLLM PR #35947 documents that SM12x GPUs lack
+the `cvt.rn.satfinite.e2m1x2.f32` PTX instruction used by NVFP4 activation
+quantization on the (different) CUTLASS codepath, and that a CMake bug
+(fixed by PR #37725, merged 2026-03-25) was stripping the `a` architecture
+suffix, compiling SM120 as plain `sm_120` instead of `sm_120a` and silently
+disabling the correct FP4 conversion path — producing NaNs, not a clean
+crash. Checked `~/vllm-src` directly rather than trusting the PR description
+alone: it's tag `v0.26.0` (2026-07-26, four months after the fix merged),
+and `cmake/utils.cmake`'s `string_to_ver` macro already has a comment stating
+it "Preserves architecture-specific suffixes (a/f)", with `CUDA_SUPPORTED_ARCHS`
+listing both `12.0` and `12.1`. Fix confirmed present; nothing to patch.
+
+**`lna-lab/blackwell-geforce-nvfp4-gemm` re-audited now that a W4A4 checkpoint
+is imminent** (§2 above deferred this). Of the four patches marked "Critical
+priority" for MoE FP4 on SM120 (#1 grouped-GEMM tile sizing so M128/M256
+tiles fit 99 KB SMEM, #3/#4 the `is_device_capability_family(120)` gates,
+#8/#9 FlashInfer's SM120 JIT gencode flags and FP4-quantization JIT module),
+all four are confirmed present by grepping the actually-installed
+`flashinfer==0.6.14` and this `vllm-src` checkout directly — not inferred
+from version numbers. Patch #2 (QUTLASS MXFP4 dense matmul) doesn't apply:
+our scheme is NVFP4, a different block-scale format than MXFP4. Patch #12
+(Marlin W4A8-FP8) doesn't apply: wrong scheme. Patches #5 (SM120 Flash
+Attention) and #10 (7 PyTorch Inductor monkeypatches for piecewise CUDA
+graph + NVFP4 operator fusion) were not verified — attention backend choice
+is scheme-independent so #5 is low-relevance, but #10's specific failure mode
+(`vllm/env_override.py`, confirmed absent from this vLLM build) targets
+exactly the norm_quant/act_quant fusion under piecewise CUDA graphs that a
+W4A4 MoE build will be the first thing on this box to actually exercise.
+Nothing here is a known-bad signal — it's an untested combination. Do not
+treat the "no patch needed" findings above as proof the first W4A4 serve will
+be crash-free; they only rule out the *specific* failure modes that were
+checked.
+
+**FlashInfer's 833 s first-load JIT cost (measured 2026-08-20, cited in
+ROADMAP step 4) is not an open question about "warm-container strategy" — it's
+already a one-time-per-machine cost, not per-restart.** `~/.cache/flashinfer`
+already holds 180 MiB from the A16 runs and FlashInfer persists compiled
+kernels there across server restarts (confirmed: two subdirs, one per
+FlashInfer version used on this box). The 833 s hasn't been amortized yet
+specifically because A16 never exercises the activation-quant / FP4 MoE
+grouped-GEMM kernels W4A4 needs — but once paid once on this machine, it's
+paid. Additionally, this vLLM build exposes `VLLM_USE_AOT_COMPILE` (default
+off, confirmed present in `envs.py`) — worth testing whether it removes the
+JIT hit outright rather than just caching it after eating it once.
+
+**Net effect on the roadmap**: none of this rules the project in or out — it
+narrows what's actually unverified down to one thing: an end-to-end W4A4 MoE
+forward pass has never run on this card. Everything checkable without
+spending GPU/CPU time has been checked. See `ROADMAP.md`, updated
+accordingly.
+
 ## Next
 
 See `ROADMAP.md`. Nothing in tonight's findings changes the plan to run the
 50-instance SWE-bench pilot at `MAXLEN=49152 MAXSEQS=2` — that number was
 already measured and validated on 2026-08-21 before this investigation started,
-and remains the target for the next session.
+and remains a target alongside the W4A4 re-quantization, both still gated on
+GPU time being available.
 
 ## Addendum: a self-correction, and a correction of that correction
 

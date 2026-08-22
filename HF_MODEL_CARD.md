@@ -180,6 +180,21 @@ breakdown and required caveats.
   academia — these numbers are self-reported and independently reproducible
   from the released evaluation scripts, not a leaderboard entry.
 
+## W4A4 re-quantization: investigated, not shipped
+
+A follow-up build re-quantized this checkpoint to `NVFP4` (W4A4 — weights
+**and** activations to 4 bits) to reach native FP4 tensor-core kernels
+instead of this model's Marlin dequant-to-bf16 fallback. Measured properly
+(5 interleaved runs per arm, median + range, under both isolated eager mode
+and the same PIECEWISE CUDA-graph configuration this model actually serves
+with): W4A4 decodes at 119.2 tok/s vs this checkpoint's 142.5 tok/s (0.84x,
+slower) with accuracy a wash (HumanEval 92.07% vs 95.7%, HumanEval+ 89.02%
+vs 90.9%, MBPP+ 91.01% vs 89.9%). Native FP4×FP4 compute did not beat the
+dequant fallback on this hardware for a single-stream decode workload — a
+negative result, not published as a checkpoint. Full writeup:
+[`ROADMAP.md`](https://github.com/t-timms/KAT-Coder-V2.5-Dev-REAP-50-NVFP4A16/blob/main/ROADMAP.md)'s
+RESULT section in the release repo.
+
 ## License
 
 Apache 2.0, inherited from the base model `Kwaipilot/KAT-Coder-V2.5-Dev` and
